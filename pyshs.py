@@ -15,7 +15,7 @@ import pandas as pd
 import numpy as np
 from scipy.stats import chi2_contingency
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 def tri_a_plat(df,variable,weight = False):
     """
