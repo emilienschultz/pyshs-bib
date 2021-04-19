@@ -11,3 +11,4 @@ classifiers = [ "License :: OSI Approved :: MIT License",]
 requires=["pandas",
           "numpy",
           "scipy"]
+description-file="README.md"
