@@ -58,8 +58,8 @@ $ pip install pyshs
 ```python
 >> import pyshs
 >> data = pd.read_excel("enquete.xlsx")
-var_indep = {"sexe":"Genre","age":"Age","zones":"Lieu d'habitation"}
-pyshs.tableau_croise_multiple(data,"confiance_scientifiques",var_indep,"weight")
+>> var_indep = {"sexe":"Genre","age":"Age","zones":"Lieu d'habitation"}
+>> pyshs.tableau_croise_multiple(data,"confiance_scientifiques",var_indep,"weight")
 ```
 |                                      | 1 - Oui       | 2 - Non       | Total           |
 |:-------------------------------------|:--------------|:--------------|:----------------|
