@@ -1,13 +1,15 @@
 """
-Module PySHS pour faciliter le traitement statistique en SHS avec Python
-Dernière modification : 18/04/2021
+Module PySHS - Faciliter le traitement statistique en SHS
+Langue : Français (principalement)
+Dernière modification : 20/04/2021
 Auteur : Émilien Schultz
 
-Pour le moment le module PySHS comprend
+Pour le moment le module PySHS comprend :
+
 - une fonction pour le tri à plat (pondérés)
 - une fonction pour les tableaux croisés (pondérés)
 - une fonction pour des tableaux croisés multiples (pondérés) afin de voir le lien variable dépendante/indépendantes
-- une fonction de mise en forme des résultats de la régression logistique
+- une fonction de mise en forme des résultats de la régression logistique (à finaliser)
 """
 
 
@@ -15,24 +17,25 @@ import pandas as pd
 import numpy as np
 from scipy.stats import chi2_contingency
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 
 def tri_a_plat(df, variable, weight=False):
     """
-    Tri à plat pour une variable qualitative
+    Tri à plat pour une variable qualitative pondérée ou non.
 
-    Paramètres
+    Parameters
     ----------
     df : DataFrame
-    variable : string, nom de la colonne
-    weight : optionnel, colonne de la pondération
+    variable : string, column name
+    weight : string (optionnal), column name for the weigthing
 
-    Retours
+    Returns
     -------
-    DataFrame mis en forme du tri à plat avec total et pourcentages
+    DataFrame
+    Tri à plat mis en forme
 
-    Remarques
+    Comments
     -------
     Pas de gestion des valeurs manquantes actuellement
 
@@ -64,30 +67,26 @@ def tri_a_plat(df, variable, weight=False):
     return tableau.sort_index()
 
 
-# à ajouter éventuellement de la mise en forme
-
 
 def tableau_croise(df, c1, c2, weight=False, p=False, debug=False):
     """
     Tableau croisé pour deux variables qualitatives, avec
-    présentation des pourcentages par ligne
+    présentation des pourcentages par ligne.
 
-    Paramètres
+    Parameters
     ----------
     df : DataFrame
-    c1,c2 : string, noms des deux colonnes à croiser
-    weight : optionnel, colonne de la pondération
-    p : optionnel, retour de la probabilité critique calculée avec un chi2
-    debug : optionnel, retour des tableaux bruts non mis en forme
+    c1,c2 : strings, column names
+    weight : string (optionnel), column name for weights
+    p : bool (optionnel), calculate the chi2 test for the table
+    debug : bool (optionnel), return intermediate tables (raw)
 
-    Retours
+    Returns
     -------
-    DataFrame mis en forme du tableau croisé avec total et pourcentages
+    DataFrame, crosstab
+    Tableau croisé mis en forme
 
-    Si p, ajout de la probabilité critique
-    Si debug, retour de tous les tableaux intermédiaires
-
-    Remarques
+    Comments
     -------
     Pas de gestion des valeurs manquantes actuellement
 
@@ -135,16 +134,16 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False):
 
 def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True):
     """
-    Tableau croisé multiple une variable dépendantes/plusieurs indépendantes
+    Tableau croisé multiple une variable dépendantes/plusieurs indépendantes.
 
-    Paramètres
+    Parameters
     ----------
     df : DataFrame
     dep : string, nom de la variable dépendante en colonne
     indeps : dictionnaire des variables indépendantes et leur label pour le tableau
     weight : optionnel, colonne de la pondération
 
-    Retours
+    Returns
     -------
     DataFrame mis en forme du tableau croisé avec pourcentages par ligne et tri croisé sur total
     p-value indicative par un chi2
@@ -180,16 +179,18 @@ def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True):
 
 def significativite(x, digits=4):
     """
-    Nombre d'étoiles associées à une p-value
+    Mettre en forme la p-value
 
-    Paramètres
+    Parameters
     ----------
-    x : float, valeur de la p-value
+    x : float, p-value
 
-    Retours
+    Returns
     -------
-    string : p-value arrondie et étoiles
+    string : p-value with fixed number of decimals and stars
     """
+
+    # Tester le format
     if pd.isnull(x):
         return None
 
@@ -204,6 +205,7 @@ def significativite(x, digits=4):
     if x < 0.05:
         return str(x) + "*"
 
+    # Retourner la p-value mise en forme
     return str(x)
 
 
@@ -211,14 +213,18 @@ def presentation_logistique(regression, sig=False):
     """
     Mise en forme des résultats de régression logistique
 
-    Paramètres
+    Parameters
     ----------
-    regression: modèle de régression de statsmodel
-    sig: optionnel, booléen
+    regression: statsmodel object from GLM
+    sig: bool (optionnal)
 
-    Retours
+    Returns
     -------
-    DataFrame : tableau de la régression logistique
+    DataFrame : table for the results
+
+    Comments
+    -------
+    À finir
     """
 
     # Passage des coefficients aux Odds Ratio
