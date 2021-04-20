@@ -25,6 +25,7 @@ $ pip install pyshs
 ```python
 >>data = pd.read_excel("enquete.xlsx")
 >> pyshs.tri_a_plat(data,"age","weight")
+```
 
 | age     |   Effectif redressé |   Pourcentage (%) |
 |:--------|--------------------:|------------------:|
@@ -32,6 +33,6 @@ $ pip install pyshs
 | [25-45[ |               731.1 |              36.5 |
 | [45-65[ |               755.1 |              37.7 |
 | [65+    |               256.4 |              12.8 |
-```
+
 
 ### Tableau croisé d'une variable qualitative pondérée
