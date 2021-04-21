@@ -27,16 +27,18 @@ def tri_a_plat(df, variable, weight=False):
     Parameters
     ----------
     df : DataFrame
-    variable : string, column name
-    weight : string (optionnal), column name for the weigthing
+    variable : string
+        column name
+    weight : string (optionnal)
+        column name for the weigthing
 
     Returns
     -------
     DataFrame
-    Tri à plat mis en forme
+        Tri à plat mis en forme
 
     Comments
-    -------
+    --------
     Pas de gestion des valeurs manquantes actuellement
 
     """
@@ -44,7 +46,7 @@ def tri_a_plat(df, variable, weight=False):
     if not isinstance(df, pd.DataFrame):
         print("Attention, ce n'est pas un tableau Pandas")
         return None
-    if not variable in df.columns:
+    if variable not in df.columns:
         print("Attention, la variable n'est pas dans le tableau")
         return None
 
@@ -67,7 +69,6 @@ def tri_a_plat(df, variable, weight=False):
     return tableau.sort_index()
 
 
-
 def tableau_croise(df, c1, c2, weight=False, p=False, debug=False):
     """
     Tableau croisé pour deux variables qualitatives, avec
@@ -76,18 +77,22 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False):
     Parameters
     ----------
     df : DataFrame
-    c1,c2 : strings, column names
-    weight : string (optionnel), column name for weights
-    p : bool (optionnel), calculate the chi2 test for the table
-    debug : bool (optionnel), return intermediate tables (raw)
+    c1,c2 : string
+        column names
+    weight : string (optionnel),
+        column name for weights
+    p : bool (optionnel)
+        calculate the chi2 test for the table
+    debug : bool (optionnel)
+        return intermediate tables (raw)
 
     Returns
     -------
-    DataFrame, crosstab
-    Tableau croisé mis en forme
+    crosstab : DataFrame
+        Tableau croisé mis en forme
 
     Comments
-    -------
+    --------
     Pas de gestion des valeurs manquantes actuellement
 
     """
@@ -139,14 +144,17 @@ def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True):
     Parameters
     ----------
     df : DataFrame
-    dep : string, nom de la variable dépendante en colonne
-    indeps : dictionnaire des variables indépendantes et leur label pour le tableau
+    dep : string
+        nom de la variable dépendante en colonne
+    indeps : dict
+        dictionnaire des variables indépendantes et leur label pour le tableau
     weight : optionnel, colonne de la pondération
 
     Returns
     -------
-    DataFrame mis en forme du tableau croisé avec pourcentages par ligne et tri croisé sur total
-    p-value indicative par un chi2
+    DataFrame
+        mis en forme du tableau croisé avec pourcentages par ligne et tri croisé
+        sur total p-value indicative par un chi2
 
     """
 
@@ -187,7 +195,8 @@ def significativite(x, digits=4):
 
     Returns
     -------
-    string : p-value with fixed number of decimals and stars
+    string
+        p-value with fixed number of decimals and stars
     """
 
     # Tester le format
@@ -220,10 +229,11 @@ def presentation_logistique(regression, sig=False):
 
     Returns
     -------
-    DataFrame : table for the results
+    DataFrame
+        table for the results
 
     Comments
-    -------
+    --------
     À finir
     """
 
