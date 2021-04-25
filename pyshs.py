@@ -235,7 +235,7 @@ def tableau_reg_logistique(regression, data, indep_var, sig=True):
     Returns
     -------
     DataFrame : table for the results
-    
+
     Comments
     --------
     For the moment, intercept is in the middle of the table ...
@@ -249,10 +249,10 @@ def tableau_reg_logistique(regression, data, indep_var, sig=True):
                  freq_weights=data["weight"])
     >>> reg = modele.fit()
     >>> tableau_reg_logistique(reg,data,ind_var,sig=True)
-    
+
     """
 
-    # Mise en forme du tableau général OR / 
+    # Mise en forme du tableau général OR /
     table = np.exp(regression.conf_int())
     table["Odds Ratio"] = round(np.exp(regression.params), 2)
     table["p"] = round(regression.pvalues, 3)
@@ -264,39 +264,39 @@ def tableau_reg_logistique(regression, data, indep_var, sig=True):
     if sig:
         table["p"] = table["p"].apply(significativite)
     table = table.drop([0, 1], axis=1)
-    
+
     # Transformation de l'index pour ajouter les références
-    
+
     # Gestion à part de l'intercept qui n'a pas de modalité
     temp_intercept = list(table.loc["Intercept"])
     table = table.drop("Intercept")
-    
+
     # Identification des références utilisées par la régression
     # Premier élément des modalités classées
     refs = []
     for v in ind_var:
         r = sorted(data[v].dropna().unique())[0]
-        refs.append(str(v)+"[T."+str(r)+"]")
-    
+        refs.append(str(v) + "[T." + str(r) + "]")
+
     # Ajout des références dans le tableau
     for i in refs:
-        table.loc[i] = ["ref"," "," "]
+        table.loc[i] = ["ref", " ", " "]
 
     # Création d'un MultiIndex Pandas par variable
     new_index = []
     for i in table.index:
         tmp = i.split("[T.")
-        new_index.append((ind_var[tmp[0]],tmp[1][0:-1]))
-    
+        new_index.append((ind_var[tmp[0]], tmp[1][0:-1]))
+
     # Réintégration de l'Intercept dans le tableau
-    new_index.append((".Intercept",""))
+    new_index.append((".Intercept", ""))
     table.loc[".Intercept"] = temp_intercept
-    
+
     # Réindexation du tableau
     new_index = pd.MultiIndex.from_tuples(new_index, names=["Variable", "Modalité"])
     table.index = new_index
     table = table.sort_index()
-        
+
     return table
 
 
