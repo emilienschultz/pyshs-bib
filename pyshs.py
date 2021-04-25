@@ -17,7 +17,7 @@ import pandas as pd
 import numpy as np
 from scipy.stats import chi2_contingency
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 
 def tri_a_plat(df, variable, weight=False):
@@ -274,7 +274,7 @@ def tableau_reg_logistique(regression, data, indep_var, sig=True):
     # Identification des références utilisées par la régression
     # Premier élément des modalités classées
     refs = []
-    for v in ind_var:
+    for v in indep_var:
         r = sorted(data[v].dropna().unique())[0]
         refs.append(str(v) + "[T." + str(r) + "]")
 
@@ -286,7 +286,7 @@ def tableau_reg_logistique(regression, data, indep_var, sig=True):
     new_index = []
     for i in table.index:
         tmp = i.split("[T.")
-        new_index.append((ind_var[tmp[0]], tmp[1][0:-1]))
+        new_index.append((indep_var[tmp[0]], tmp[1][0:-1]))
 
     # Réintégration de l'Intercept dans le tableau
     new_index.append((".Intercept", ""))
