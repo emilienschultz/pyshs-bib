@@ -1,7 +1,7 @@
 """
 Module PySHS - Faciliter le traitement statistique en SHS
-Langue : Français (principalement)
-Dernière modification : 20/04/2021
+Langue : Français
+Dernière modification : 25/04/2021
 Auteur : Émilien Schultz
 
 Pour le moment le module PySHS comprend :
@@ -9,7 +9,7 @@ Pour le moment le module PySHS comprend :
 - une fonction pour le tri à plat (pondérés)
 - une fonction pour les tableaux croisés (pondérés)
 - une fonction pour des tableaux croisés multiples (pondérés) afin de voir le lien variable dépendante/indépendantes
-- une fonction de mise en forme des résultats de la régression logistique (à finaliser)
+- une fonction de mise en forme des résultats de la régression logistique de Statsmodel pour avoir un tableau avec les références
 """
 
 
@@ -218,44 +218,89 @@ def significativite(x, digits=4):
     return str(x)
 
 
-def presentation_logistique(regression, sig=False):
+def tableau_reg_logistique(regression, data, indep_var, sig=True):
     """
-    Mise en forme des résultats de régression logistique
+    Mise en forme des résultats de la régression logistique issue de Statsmodel
+    pour une lecture habituelle en SHS
 
     Parameters
     ----------
     regression: statsmodel object from GLM
+    df: DataFrame
+     Database to extract modalities
+    indep_var: dictionnary
+     column of the variable / Label to use in the table
     sig: bool (optionnal)
 
     Returns
     -------
-    DataFrame
-        table for the results
-
+    DataFrame : table for the results
+    
     Comments
     --------
-    À finir
+    For the moment, intercept is in the middle of the table ...
+
+    Examples
+    --------
+    The dictionnary ind_var should be defined as {var:label}
+
+    >>> import statsmodels.api as sm
+    >>> modele = smf.glm(formula=f, data=data, family=sm.families.Binomial(),
+                 freq_weights=data["weight"])
+    >>> reg = modele.fit()
+    >>> tableau_reg_logistique(reg,data,ind_var,sig=True)
+    
     """
 
-    # Passage des coefficients aux Odds Ratio
-    df = np.exp(regression.conf_int())
-    df["odd ratio"] = round(np.exp(regression.params), 2)
-    df["p-value"] = round(regression.pvalues, 3)
-    df["IC"] = df.apply(
-        lambda x: "%.2f [%.2f-%.2f]" % (x["odd ratio"], x[0], x[1]), axis=1
+    # Mise en forme du tableau général OR / 
+    table = np.exp(regression.conf_int())
+    table["Odds Ratio"] = round(np.exp(regression.params), 2)
+    table["p"] = round(regression.pvalues, 3)
+    table["IC"] = table.apply(
+        lambda x: "%.2f [%.2f-%.2f]" % (x["Odds Ratio"], x[0], x[1]), axis=1
     )
 
     # Ajout de la significativité
     if sig:
-        df["p-value"] = df["p-value"].apply(significativite)
+        table["p"] = table["p"].apply(significativite)
+    table = table.drop([0, 1], axis=1)
+    
+    # Transformation de l'index pour ajouter les références
+    
+    # Gestion à part de l'intercept qui n'a pas de modalité
+    temp_intercept = list(table.loc["Intercept"])
+    table = table.drop("Intercept")
+    
+    # Identification des références utilisées par la régression
+    # Premier élément des modalités classées
+    refs = []
+    for v in ind_var:
+        r = sorted(data[v].dropna().unique())[0]
+        refs.append(str(v)+"[T."+str(r)+"]")
+    
+    # Ajout des références dans le tableau
+    for i in refs:
+        table.loc[i] = ["ref"," "," "]
 
-    df = df.drop([0, 1], axis=1)
-    return df
+    # Création d'un MultiIndex Pandas par variable
+    new_index = []
+    for i in table.index:
+        tmp = i.split("[T.")
+        new_index.append((ind_var[tmp[0]],tmp[1][0:-1]))
+    
+    # Réintégration de l'Intercept dans le tableau
+    new_index.append((".Intercept",""))
+    table.loc[".Intercept"] = temp_intercept
+    
+    # Réindexation du tableau
+    new_index = pd.MultiIndex.from_tuples(new_index, names=["Variable", "Modalité"])
+    table.index = new_index
+    table = table.sort_index()
+        
+    return table
 
 
-# Fonctions temporaires
-
-
+# Fonctions temporaires non finalisées
 def cramers_corrected_stat(confusion_matrix):
     """calculate Cramers V statistic for categorial-categorial association.
     uses correction from Bergsma and Wicher,
