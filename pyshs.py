@@ -1,8 +1,12 @@
 """
 Module PySHS - Faciliter le traitement statistique en SHS
 Langue : Français
-Dernière modification : 25/04/2021
+Dernière modification : 01/05/2021
 Auteur : Émilien Schultz
+Contributeurs :
+- Matthias Bussonnier
+- Léo Mignot
+
 
 Pour le moment le module PySHS comprend :
 
@@ -10,14 +14,18 @@ Pour le moment le module PySHS comprend :
 - une fonction pour les tableaux croisés (pondérés)
 - une fonction pour des tableaux croisés multiples (pondérés) afin de voir le lien variable dépendante/indépendantes
 - une fonction de mise en forme des résultats de la régression logistique de Statsmodel pour avoir un tableau avec les références
+- une fonction pour produire la régression logistique binomiale (BETA)
 """
 
 
 import pandas as pd
 import numpy as np
 from scipy.stats import chi2_contingency
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
 
-__version__ = "0.1.4"
+
+__version__ = "0.1.5"
 
 
 def tri_a_plat(df, variable, weight=False):
@@ -65,6 +73,9 @@ def tri_a_plat(df, variable, weight=False):
         tableau = pd.DataFrame([effectif, pourcentage]).T
         tableau.columns = ["Effectif redressé", "Pourcentage (%)"]
 
+    # Ajout de la ligne total
+    tableau.loc["Total"] = [effectif.sum(),pourcentage.sum()]
+
     # Retourner le tableau ordonné
     return tableau.sort_index()
 
@@ -93,13 +104,13 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False):
 
     Comments
     --------
-    Pas de gestion des valeurs manquantes actuellement
+    Pas de gestion des valeurs manquantes actuellement, qui ne sont donc pas comptées
 
     """
 
-    # Si les données ne sont pas pondérées, pondération à 1
+    # Si les données ne sont pas pondérées, création d'une pondération unitaire
     if not weight:
-        df = df.copy()  # Pour ajouter une colonne
+        df = df.copy()  # Pour ne pas modifier l'objet
         df["weight"] = 1
         weight = "weight"
 
@@ -107,12 +118,8 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False):
     t_absolu = round(
         pd.crosstab(df[c1], df[c2], df[weight], aggfunc=sum, margins=True), 1
     ).fillna(0)
-    # Tableau effectif sans distribution marginales
-    t_absolu_sm = round(pd.crosstab(df[c1], df[c2], df[weight], aggfunc=sum), 1).fillna(
-        0
-    )
-    # Tableau pourcentages par ligne
-    t_pourcentage = t_absolu_sm.apply(lambda x: 100 * x / sum(x), axis=1)
+    # Tableau pourcentages par ligne (enlever la colonne totale)
+    t_pourcentage = t_absolu.drop("All",axis=1).apply(lambda x: 100 * x / sum(x), axis=1)
 
     # Mise en forme du tableau avec les pourcentages
     t = t_absolu.copy()
@@ -125,13 +132,16 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False):
                 + "%)"
             )
 
+    # Ajout des 100% pour la ligne colonne
+    t["All"] = t["All"].apply(lambda x : "{} (100%)".format(x))
+            
     # Retour des tableaux non mis en forme
     if debug:
-        return t, t_absolu, t_absolu_sm, t_pourcentage
+        return t, t_absolu, t_pourcentage
 
     # Retour du tableau avec la p-value
     if p:
-        return t, chi2_contingency(t_absolu_sm)[1]
+        return t, chi2_contingency(t_absolu.drop("All").drop("All",axis=1))[1]
 
     # Retour du tableau mis en forme
     return t
@@ -144,9 +154,9 @@ def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True):
     Parameters
     ----------
     df : DataFrame
-    dep : string
+    dep : string ou dic {nom:label}
         nom de la variable dépendante en colonne
-    indeps : dict
+    indeps : dict ou list
         dictionnaire des variables indépendantes et leur label pour le tableau
     weight : optionnel, colonne de la pondération
 
@@ -156,33 +166,38 @@ def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True):
         mis en forme du tableau croisé avec pourcentages par ligne et tri croisé
         sur total p-value indicative par un chi2
 
+    Comments
+    --------
+    Manque une colonne tri à plat
+
     """
-
-    # Total de pondération pour le calcul du tri à plat par variable
-    if not weight:
-        total = len(df)
-    else:
-        total = df[weight].sum()
-
+    
+    # Noms des variables
+    if type(indeps) == list:
+        indeps = {i:i for i in indeps}
+        
     t_all = {}
 
     # Boucle sur les variables indépendantes
     for i in indeps:
         # Tableau croisé pondéré
         t, p = tableau_croise(df, i, dep, weight, p=True)
+        dis = tri_a_plat(df,i)
+        t.index.values[-1] = "Total"
+        t["Distribution"] = dis["Pourcentage (%)"].apply(lambda x : "{}%".format(x))
         if chi2:
-            t_all[indeps[i] + " (p = %.03f)" % p] = t.drop("All")
+            t_all[indeps[i] + " (p = %.03f)" % p] = t
         else:
-            t_all[indeps[i]] = t.drop("All")
-    # Création d'un dataframe
+            t_all[indeps[i]] = t
+            
+    # Création d'un DataFrame
     t_all = pd.concat(t_all)
-    t_all["Total"] = t_all["All"].apply(
-        lambda x: "%0.1f (%0.1f %%)" % (x, round(100 * x / total, 1))
-    )
     t_all.columns.name = ""
     t_all.index.names = ["Variable", "Modalités"]
+    t_all.columns.values[-2] = "Total"
 
-    return t_all.drop("All", axis=1)
+    return t_all
+
 
 
 def significativite(x, digits=4):
@@ -275,8 +290,9 @@ def tableau_reg_logistique(regression, data, indep_var, sig=True):
     # Premier élément des modalités classées
     refs = []
     for v in indep_var:
-        r = sorted(data[v].dropna().unique())[0]
-        refs.append(str(v) + "[T." + str(r) + "]")
+        r = sorted(data[v].dropna().unique())[0] #premier élément
+        if type(r) == str: #uniquement les variables catégorielles
+            refs.append(str(v) + "[T." + str(r) + "]") #ajout de la référence
 
     # Ajout des références dans le tableau
     for i in refs:
@@ -285,8 +301,11 @@ def tableau_reg_logistique(regression, data, indep_var, sig=True):
     # Création d'un MultiIndex Pandas par variable
     new_index = []
     for i in table.index:
-        tmp = i.split("[T.")
-        new_index.append((indep_var[tmp[0]], tmp[1][0:-1]))
+        if "[T." in i: # Si c'est une variable catégorielle
+            tmp = i.split("[T.")
+            new_index.append((indep_var[tmp[0]], tmp[1][0:-1]))
+        else:
+            new_index.append((indep_var[i], "numérique"))
 
     # Réintégration de l'Intercept dans le tableau
     new_index.append((".Intercept", ""))
@@ -298,6 +317,65 @@ def tableau_reg_logistique(regression, data, indep_var, sig=True):
     table = table.sort_index()
 
     return table
+
+
+def construction_formule(dep,indep):
+    """
+    Construit une formule de modèle à partir d'une liste de variables
+    """
+    return dep + " ~ " + " + ".join([i for i in indep])
+
+
+def regression_logistique(df,dep_var,indep_var,weight=False,table_only=True):
+    """
+    Régression logistique binomiale pondérée
+    
+    Parameters
+    ----------
+    df: DataFrame
+     Database
+    dep_var : String
+     Name of the binomiale variable
+    indep_var: dictionnary or list
+     column of the variable / Label to use in the table
+    weight: String (optionnal)
+     column of the weighting
+    table_only: if True, return the model
+    
+    Returns
+    -------
+    DataFrame : table for the results, or the model if table_only=Trye
+
+    Comments
+    --------
+    BETA VERSION BE CAREFUL NEED CHECKING
+
+    """
+    
+    # S'il n'y a pas de pondération définie
+    if not weight:
+        df["weight"] = 1
+        weight = "weight"
+        
+    # Mettre les variables indépendantes en dictionnaire si nécessaire
+    if type(indep_var)==list:
+        indep_var = {i:i for i in indep_var}
+    
+    # Construction de la formule
+    f = construction_formule(dep_var,indep_var)
+    
+    # Création du modèle
+    modele = smf.glm(formula=f, data=df, 
+                     family=sm.families.Binomial(), 
+                     freq_weights=df[weight])
+    regression = modele.fit()
+        
+    # Retourner le tableau de présentation
+    if table_only:
+        tableau = tableau_reg_logistique(regression,df,indep_var,sig=True)
+        return tableau
+    else:
+        return regression
 
 
 # Fonctions temporaires non finalisées
