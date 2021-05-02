@@ -1,7 +1,7 @@
 """
 Module PySHS - Faciliter le traitement statistique en SHS
 Langue : Français
-Dernière modification : 01/05/2021
+Dernière modification : 02/05/2021
 Auteur : Émilien Schultz
 Contributeurs :
 - Matthias Bussonnier
@@ -108,6 +108,14 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False):
 
     """
 
+    # Tester le format de l'entrée
+    if not isinstance(df, pd.DataFrame):
+        print("Attention, ce n'est pas un tableau Pandas")
+        return None
+    if c1 not in df.columns or c2 not in df.columns:
+        print("Attention, une des variables n'est pas dans le tableau")
+        return None
+
     # Si les données ne sont pas pondérées, création d'une pondération unitaire
     if not weight:
         df = df.copy()  # Pour ne pas modifier l'objet
@@ -171,12 +179,30 @@ def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True):
     Manque une colonne tri à plat
 
     """
-    
+
+    # Tester le format de l'entrée
+    if not isinstance(df, pd.DataFrame):
+        print("Attention, ce n'est pas un tableau Pandas")
+        return None
+    if (type(indeps)!=list) and (type(indeps)!=dict):
+        print("Les variables ne sont pas renseignées sous le bon format")
+        return None
+    if dep not in df.columns:
+        print("La variable {} n'est pas dans le tableau".format(dep))
+        return None
+    for i in indeps:
+        if i not in df.columns:
+            print("La variable {} n'est pas dans le tableau".format(i))
+            return None        
+
     # Noms des variables
     if type(indeps) == list:
         indeps = {i:i for i in indeps}
         
     t_all = {}
+
+    # Compteur des totaux par croisement
+    check_total = []
 
     # Boucle sur les variables indépendantes
     for i in indeps:
@@ -184,6 +210,7 @@ def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True):
         t, p = tableau_croise(df, i, dep, weight, p=True)
         dis = tri_a_plat(df,i)
         t.index.values[-1] = "Total"
+        check_total.append(t.iloc[-1,-1])
         t["Distribution"] = dis["Pourcentage (%)"].apply(lambda x : "{}%".format(x))
         if chi2:
             t_all[indeps[i] + " (p = %.03f)" % p] = t
@@ -195,6 +222,10 @@ def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True):
     t_all.columns.name = ""
     t_all.index.names = ["Variable", "Modalités"]
     t_all.columns.values[-2] = "Total"
+
+    # Alerter sur les totaux différents
+    if len(set(check_total))!=1:
+        print("Attention, les totaux par tableaux sont différents (valeurs manquantes)")
 
     return t_all
 
@@ -271,7 +302,7 @@ def tableau_reg_logistique(regression, data, indep_var, sig=True):
     table = np.exp(regression.conf_int())
     table["Odds Ratio"] = round(np.exp(regression.params), 2)
     table["p"] = round(regression.pvalues, 3)
-    table["IC"] = table.apply(
+    table["IC 95%"] = table.apply(
         lambda x: "%.2f [%.2f-%.2f]" % (x["Odds Ratio"], x[0], x[1]), axis=1
     )
 
