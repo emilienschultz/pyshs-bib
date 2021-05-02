@@ -25,7 +25,7 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
 
-__version__ = "0.1.5"
+__version__ = "0.1.6"
 
 
 def tri_a_plat(df, variable, weight=False):
