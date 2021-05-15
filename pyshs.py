@@ -10,22 +10,57 @@ Contributeurs :
 
 Pour le moment le module PySHS comprend :
 
+- une fonction de description du tableau
 - une fonction pour le tri à plat (pondérés)
 - une fonction pour les tableaux croisés (pondérés)
 - une fonction pour des tableaux croisés multiples (pondérés) afin de voir le lien variable dépendante/indépendantes
 - une fonction de mise en forme des résultats de la régression logistique de Statsmodel pour avoir un tableau avec les références
 - une fonction pour produire la régression logistique binomiale (BETA)
+
+À faire :
+- cercle de corrélation pour l'ACP
+- tester la régression logistique vs. R, et ajouter les éléments comme le R2 en plus
+
+
 """
 
 
 import pandas as pd
+from pandas.api.types import is_numeric_dtype
 import numpy as np
 from scipy.stats import chi2_contingency
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
 
-__version__ = "0.1.6"
+__version__ = "0.1.7"
+
+
+def description(df):
+    """
+    Description d'un tableau de données
+
+    Parameters
+    ----------
+    df : DataFrame
+
+    Returns
+    -------
+    DataFrame
+        Description des variables du tableau
+
+    """
+    tableau = []
+    for i in df.columns:
+        if is_numeric_dtype(df[i]):
+            l = [i,"Numérique",None,None,round(df[i].mean(),2),round(df[i].std(),2),pd.isnull(df[i]).sum()]
+        else:
+            l = [i,"Catégorielle",len(df[i].unique()),df[i].mode().iloc[0],None,None,pd.isnull(df[i]).sum()]
+        tableau.append(l)
+    tableau = pd.DataFrame(tableau,
+            columns=["Variable","Type","Modalités","Mode",
+                     "Moyenne","Écart-type","Valeurs manquantes"]).set_index("Variable")
+    return tableau.fillna(" ")
 
 
 def tri_a_plat(df, variable, weight=False):
@@ -73,11 +108,14 @@ def tri_a_plat(df, variable, weight=False):
         tableau = pd.DataFrame([effectif, pourcentage]).T
         tableau.columns = ["Effectif redressé", "Pourcentage (%)"]
 
+    # Retourner le tableau ordonné en forçant l'index en texte
+    tableau.index = [str(i) for i in tableau.index]
+    tableau = tableau.sort_index()
+
     # Ajout de la ligne total
     tableau.loc["Total"] = [effectif.sum(),pourcentage.sum()]
 
-    # Retourner le tableau ordonné
-    return tableau.sort_index()
+    return tableau
 
 
 def tableau_croise(df, c1, c2, weight=False, p=False, debug=False):
