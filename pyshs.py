@@ -1,7 +1,7 @@
 """
 Module PySHS - Faciliter le traitement statistique en SHS
 Langue : Français
-Dernière modification : 02/05/2021
+Dernière modification : 20/07/2021
 Auteur : Émilien Schultz
 Contributeurs :
 - Matthias Bussonnier
@@ -14,8 +14,9 @@ Pour le moment le module PySHS comprend :
 - une fonction pour le tri à plat (pondérés)
 - une fonction pour les tableaux croisés (pondérés)
 - une fonction pour des tableaux croisés multiples (pondérés) afin de voir le lien variable dépendante/indépendantes
+- une fonction pour un tableau croisé à trois variables pour en contrôler une lors de l'analyse
 - une fonction de mise en forme des résultats de la régression logistique de Statsmodel pour avoir un tableau avec les références
-- une fonction pour produire la régression logistique binomiale (BETA)
+- une fonction pour produire la régression logistique binomiale
 
 À faire :
 - cercle de corrélation pour l'ACP
@@ -33,7 +34,7 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
 
-__version__ = "0.1.7"
+__version__ = "0.1.8"
 
 
 def description(df):
@@ -191,6 +192,58 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False):
 
     # Retour du tableau mis en forme
     return t
+
+def tableau_croise_controle(df, cont, c, r, weight=False):
+    """
+    Tableau croisé avec une variable de contrôle en plus
+
+    Parameters
+    ----------
+    df : DataFrame
+    cont : string
+        column name for control variable
+    c,r : strings
+        column names for crosstable
+    weight : string (optionnel),
+        column name for weights
+
+    Returns
+    -------
+    crosstab : DataFrame
+        Tableau croisé mis en forme
+
+    Comments
+    --------
+    Pas de gestion des valeurs manquantes actuellement, qui ne sont donc pas comptées
+
+    """
+
+    # Tester le format de l'entrée
+    if not isinstance(df, pd.DataFrame):
+        print("Attention, ce n'est pas un tableau Pandas")
+        return None
+    if cont not in df.columns or c not in df.columns or r not in df.columns:
+        print("Attention, une des variables n'est pas dans le tableau")
+        return None
+
+    # Si les données ne sont pas pondérées, création d'une pondération unitaire
+    if not weight:
+        df = df.copy()  # Pour ne pas modifier l'objet
+        df["weight"] = 1
+        weight = "weight"
+
+    tab = {}
+    mod = df[cont].unique() # modalités de contrôle
+    for i in mod:
+        d = df[df[cont]==i] # sous-ensemble
+        tab[i] = tableau_croise(d,c,r,weight)
+        
+    # Mise en forme du tableau
+    tab = pd.concat(tab)
+    tab.index.names = [cont,c]
+
+    # Retour du tableau mis en forme
+    return tab
 
 
 def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True):
