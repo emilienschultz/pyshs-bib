@@ -1,7 +1,7 @@
 """
 Module PySHS - Faciliter le traitement statistique en SHS
 Langue : Français
-Dernière modification : 20/07/2021
+Dernière modification : 28/07/2021
 Auteur : Émilien Schultz
 Contributeurs :
 - Matthias Bussonnier
@@ -20,7 +20,7 @@ Pour le moment le module PySHS comprend :
 
 À faire :
 - cercle de corrélation pour l'ACP
-- tester la régression logistique vs. R, et ajouter les éléments comme le R2 en plus
+- vérifier la régression logistique pour des variables quantitatives
 
 
 """
@@ -34,7 +34,7 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
 
-__version__ = "0.1.8"
+__version__ = "0.1.9"
 
 
 def description(df):
@@ -193,7 +193,7 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False):
     # Retour du tableau mis en forme
     return t
 
-def tableau_croise_controle(df, cont, c, r, weight=False):
+def tableau_croise_controle(df, cont, c, r, weight=False, p=False):
     """
     Tableau croisé avec une variable de contrôle en plus
 
@@ -236,7 +236,12 @@ def tableau_croise_controle(df, cont, c, r, weight=False):
     mod = df[cont].unique() # modalités de contrôle
     for i in mod:
         d = df[df[cont]==i] # sous-ensemble
-        tab[i] = tableau_croise(d,c,r,weight)
+        t,p = tableau_croise(d, c, r, weight, p=True)
+        # Construire le tableau avec ou sans le chi2
+        if p:
+            tab[i + " (p = %.3f)" % p] = t
+        else:
+            tab[i] = t
         
     # Mise en forme du tableau
     tab = pd.concat(tab)
@@ -246,7 +251,7 @@ def tableau_croise_controle(df, cont, c, r, weight=False):
     return tab
 
 
-def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True):
+def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True, axis = 0):
     """
     Tableau croisé multiple une variable dépendantes/plusieurs indépendantes.
 
@@ -258,6 +263,7 @@ def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True):
     indeps : dict ou list
         dictionnaire des variables indépendantes et leur label pour le tableau
     weight : optionnel, colonne de la pondération
+    axis : orientation des pourcentages, axis = 1 pour les colonnes
 
     Returns
     -------
@@ -297,8 +303,13 @@ def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True):
 
     # Boucle sur les variables indépendantes
     for i in indeps:
-        # Tableau croisé pondéré
-        t, p = tableau_croise(df, i, dep, weight, p=True)
+        # Tableau croisé pondéré (deux orientations possibles)
+        if axis == 0:
+            t, p = tableau_croise(df, i, dep, weight, p=True)
+        else:
+            t, p = tableau_croise(df, dep, i, weight, p=True)
+            t = t.T
+
         dis = tri_a_plat(df,i)
         t.index.values[-1] = "Total"
         check_total.append(t.iloc[-1,-1])
