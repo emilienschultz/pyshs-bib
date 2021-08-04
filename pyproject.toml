@@ -2,18 +2,11 @@
 requires = ["flit_core >=2,<4"]
 build-backend = "flit_core.buildapi"
 
-[pypi]
-repository = https://upload.pypi.org/legacy/ 
-username = emilien.schultz
-
 [tool.flit.metadata]
 module = "pyshs"
-author = "Émilien Schultz"
+author = "Emilien Schultz"
 author-email = "emilien.schultz@gmail.com"
-home-page = "https://github.com/emilienschultz/pyshs-bib"
+home-page = "http://pyshs.fr"
 classifiers = [ "License :: OSI Approved :: MIT License",]
-requires-python=">=3.7"
-requires=["pandas",
-          "numpy",
-          "scipy"]
-description-file="README.md"
+description-file = "README.md"
+

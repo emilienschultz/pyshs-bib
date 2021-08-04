@@ -1,7 +1,7 @@
 """
 Module PySHS - Faciliter le traitement statistique en SHS
 Langue : Français
-Dernière modification : 28/07/2021
+Dernière modification : 04/08/2021
 Auteur : Émilien Schultz
 Contributeurs :
 - Matthias Bussonnier
@@ -17,6 +17,9 @@ Pour le moment le module PySHS comprend :
 - une fonction pour un tableau croisé à trois variables pour en contrôler une lors de l'analyse
 - une fonction de mise en forme des résultats de la régression logistique de Statsmodel pour avoir un tableau avec les références
 - une fonction pour produire la régression logistique binomiale
+
+Temporairement :
+- une fonction de mise en forme différente de la régression logistique
 
 À faire :
 - cercle de corrélation pour l'ACP
@@ -193,7 +196,7 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False):
     # Retour du tableau mis en forme
     return t
 
-def tableau_croise_controle(df, cont, c, r, weight=False, p=False):
+def tableau_croise_controle(df, cont, c, r, weight=False, chi2=False):
     """
     Tableau croisé avec une variable de contrôle en plus
 
@@ -238,7 +241,7 @@ def tableau_croise_controle(df, cont, c, r, weight=False, p=False):
         d = df[df[cont]==i] # sous-ensemble
         t,p = tableau_croise(d, c, r, weight, p=True)
         # Construire le tableau avec ou sans le chi2
-        if p:
+        if chi2:
             tab[i + " (p = %.3f)" % p] = t
         else:
             tab[i] = t
@@ -512,6 +515,26 @@ def regression_logistique(df,dep_var,indep_var,weight=False,table_only=True):
 
 
 # Fonctions temporaires non finalisées
+
+def tableau_reg_logistique_distribution(df, dep_var, indep_var, weight=False):
+    
+    # Noms des variables
+    if type(indep_var) == list:
+        indep_var = {i:i for i in indep_var}
+        
+    # régression logistique
+    reg = regression_logistique(df,dep_var,indep_var,weight = weight,table_only=True)
+    
+    # Distribution
+    dis = {}
+    for i in indep_var:
+        dis[indep_var[i]] = tri_a_plat(df,i,weight=weight)["Pourcentage (%)"].drop("Total")
+    dis = pd.concat(dis,axis=0)
+    dis.index.names = ['Variable', 'Modalité']
+    tab = reg[["IC 95%"]].join(dis)
+    return tab[["Pourcentage (%)","IC 95%"]]
+
+
 def cramers_corrected_stat(confusion_matrix):
     """calculate Cramers V statistic for categorial-categorial association.
     uses correction from Bergsma and Wicher,
