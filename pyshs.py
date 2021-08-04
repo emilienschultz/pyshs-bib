@@ -37,7 +37,7 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
 
-__version__ = "0.1.10"
+__version__ = "0.1.11"
 
 
 def description(df):
@@ -531,7 +531,15 @@ def tableau_reg_logistique_distribution(df, dep_var, indep_var, weight=False):
         dis[indep_var[i]] = tri_a_plat(df,i,weight=weight)["Pourcentage (%)"].drop("Total")
     dis = pd.concat(dis,axis=0)
     dis.index.names = ['Variable', 'Modalité']
-    tab = reg[["IC 95%"]].join(dis)
+
+    # garder uniquement l'étoile ...
+    reg["s"] = reg["p"].apply(lambda x : "" if pd.isnull(x) else "".join([i for i in x if i=="*"]))
+
+    tab = reg[["IC 95%","s"]].join(dis)
+
+    # ajout étoile
+    tab["IC 95%"] = tab.apply(lambda x : str(x["IC 95%"])+" "+x["s"],axis=1)
+
     return tab[["Pourcentage (%)","IC 95%"]]
 
 
