@@ -37,7 +37,7 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
 
-__version__ = "0.1.11"
+__version__ = "0.1.12"
 
 
 def description(df):
@@ -422,12 +422,15 @@ def tableau_reg_logistique(regression, data, indep_var, sig=True):
     temp_intercept = list(table.loc["Intercept"])
     table = table.drop("Intercept")
 
+    # Variables numériques
+    var_num = data.select_dtypes(include=np.number).columns
+
     # Identification des références utilisées par la régression
-    # Premier élément des modalités classées
+    # Premier élément des modalités classées pour les variables non numériques
     refs = []
     for v in indep_var:
-        r = sorted(data[v].dropna().unique())[0] #premier élément
-        if type(r) == str: #uniquement les variables catégorielles
+        if not v in var_num:
+            r = sorted(data[v].dropna().unique())[0] #premier élément
             refs.append(str(v) + "[T." + str(r) + "]") #ajout de la référence
 
     # Ajout des références dans le tableau
