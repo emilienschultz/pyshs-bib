@@ -1,7 +1,7 @@
 """
 Module PySHS - Faciliter le traitement statistique en SHS
 Langue : Français
-Dernière modification : 04/08/2021
+Dernière modification : 24/11/2021
 Auteur : Émilien Schultz
 Contributeurs :
 - Matthias Bussonnier
@@ -19,7 +19,8 @@ Pour le moment le module PySHS comprend :
 - une fonction pour produire la régression logistique binomiale
 
 Temporairement :
-- une fonction de mise en forme différente de la régression logistique
+- une fonction de mise en forme différente de la régression logistique, incluant les effets d'interaction (beta)
+- une fonction de test du ratio de vraissemblance de deux régressions
 
 À faire :
 - cercle de corrélation pour l'ACP
@@ -37,7 +38,7 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
 
-__version__ = "0.1.12"
+__version__ = "0.1.13"
 
 
 def description(df):
@@ -184,6 +185,10 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False):
 
     # Ajout des 100% pour la ligne colonne
     t["All"] = t["All"].apply(lambda x : "{} (100%)".format(x))
+
+    # Traduire All par Total
+    t.columns = list(t.columns)[:-1]+["Total"]
+    t.index = list(t.index)[:-1]+["Total"]
             
     # Retour des tableaux non mis en forme
     if debug:
@@ -240,6 +245,10 @@ def tableau_croise_controle(df, cont, c, r, weight=False, chi2=False):
     for i in mod:
         d = df[df[cont]==i] # sous-ensemble
         t,p = tableau_croise(d, c, r, weight, p=True)
+        # Mettre Total plutôt que All dans le tableau
+        t.columns = list(t.columns)[:-1]+["Total"]
+        t.index = list(t.index)[:-1]+["Total"]
+
         # Construire le tableau avec ou sans le chi2
         if chi2:
             tab[i + " (p = %.3f)" % p] = t
@@ -372,7 +381,9 @@ def significativite(x, digits=4):
 def tableau_reg_logistique(regression, data, indep_var, sig=True):
     """
     Mise en forme des résultats de la régression logistique issue de Statsmodel
-    pour une lecture habituelle en SHS
+    pour une lecture habituelle en SHS. 
+
+    Prend en compte aussi les effets d'interaction *
 
     Parameters
     ----------
@@ -403,6 +414,17 @@ def tableau_reg_logistique(regression, data, indep_var, sig=True):
 
     """
 
+    # Séparation des variables et des effets d'interaction
+    indep_var_unique = {}
+    for v in indep_var:
+        if "*" in v: #cas d'une interaction
+            for e in v.split("*"):
+                if not e.strip() in indep_var_unique:
+                    indep_var_unique[e.strip()] =  e.strip()
+        else:
+            indep_var_unique[v] = indep_var[v]
+
+
     # Mise en forme du tableau général OR /
     table = np.exp(regression.conf_int())
     table["Odds Ratio"] = round(np.exp(regression.params), 2)
@@ -428,7 +450,7 @@ def tableau_reg_logistique(regression, data, indep_var, sig=True):
     # Identification des références utilisées par la régression
     # Premier élément des modalités classées pour les variables non numériques
     refs = []
-    for v in indep_var:
+    for v in indep_var_unique:
         if not v in var_num:
             r = sorted(data[v].dropna().unique())[0] #premier élément
             refs.append(str(v) + "[T." + str(r) + "]") #ajout de la référence
@@ -440,11 +462,15 @@ def tableau_reg_logistique(regression, data, indep_var, sig=True):
     # Création d'un MultiIndex Pandas par variable
     new_index = []
     for i in table.index:
-        if "[T." in i: # Si c'est une variable catégorielle
-            tmp = i.split("[T.")
-            new_index.append((indep_var[tmp[0]], tmp[1][0:-1]))
+        if ":" in i: # cas où c'est une ligne d'interaction
+            new_index.append(("var. interaction", i.replace("T.","")))
         else:
-            new_index.append((indep_var[i], "numérique"))
+            if "[T." in i: # Si c'est une variable catégorielle
+                tmp = i.split("[T.")
+                new_index.append((indep_var_unique[tmp[0]], tmp[1][0:-1]))  # gérer l'absence dans le dictionnaire
+            else:
+                new_index.append((indep_var_unique[i], "numérique"))
+
 
     # Réintégration de l'Intercept dans le tableau
     new_index.append((".Intercept", ""))
@@ -487,6 +513,7 @@ def regression_logistique(df,dep_var,indep_var,weight=False,table_only=True):
 
     Comments
     --------
+    No space in the names of the variables
     BETA VERSION BE CAREFUL NEED CHECKING
 
     """
@@ -495,6 +522,12 @@ def regression_logistique(df,dep_var,indep_var,weight=False,table_only=True):
     if not weight:
         df["weight"] = 1
         weight = "weight"
+
+    # Vérifier que les variables ne contiennent pas de variables
+    if len([i for i in indep_var if " " in i])>0:
+        print("Attention, au moins un nom de variable contient un espace. Veuillez l'enlever.")
+        print([i for i in indep_var if " " in i])
+        return None
         
     # Mettre les variables indépendantes en dictionnaire si nécessaire
     if type(indep_var)==list:
@@ -517,7 +550,82 @@ def regression_logistique(df,dep_var,indep_var,weight=False,table_only=True):
         return regression
 
 
-# Fonctions temporaires non finalisées
+def likelihood_ratio(mod, mod_r):
+    """
+    Différence de déviance entre deux modèles logistiques (likelihood ratio)
+
+    Parameters
+    ----------
+    mod : statsmodel object from GLM
+     First model to compare
+    mod_r : statsmodel object from GLM
+     Second model to compare at
+    
+    Returns
+    -------
+    float : p-value of the likelihood ratio
+
+    Comments
+    --------
+    Source : http://rnowling.github.io/machine/learning/2017/10/07/likelihood-ratio-test.html
+    Testé en Rstats avec lmtest
+    """
+    val = [mod.llf,mod_r.llf]
+    LR = 2*(max(val)-min(val)) #rapport de déviance
+    
+    val = [mod.df_model,mod_r.df_model]
+    diff_df = max(val)-min(val) #différence de ddf
+
+    p = chi2.sf(LR,diff_df) #test de la significativité
+    return p
+
+# ----------------------------------------------------------------------
+# Classes et fonctions temporaires non finalisées
+
+class bdd_spss():
+    """
+    Wrapper objet for SPSS .sav files
+    """
+    def __init__(self, path):
+        
+        # charger avec pyreadstat
+        self.path = path
+        self.data,self.meta = pyreadstat.read_sav(self.path)
+        self.description = pd.DataFrame([pd.Series(self.meta.column_names_to_labels),
+              pd.Series(self.meta.variable_value_labels)]).T
+        self.description.columns = ["Question","Modalités"]
+        
+        # un df avec les modalités explicite
+        self.data_mod = self.data.copy()
+        for i,j in bdd.description.iterrows():
+            if pd.notnull(j["Modalités"]):
+                self.data_mod[i] = self.data_mod[i].replace(j["Modalités"])
+                
+    def __repr__(self):
+        return self.path
+        
+    def info(self,var):
+        """
+        Information about a variable
+        """
+        if not var in self.description.index:
+            return "Variable absence de la base de donnée"
+        return self.description.loc[var]
+    
+    def mod(self,var):
+        """
+        Return modalities of a variable (to use with replace)
+        """
+        if not var in self.description.index:
+            return "Variable absence de la base de donnée"
+        return self.description.loc[var]["Modalités"]
+    
+    def get_data(self):
+        """
+        Copy the DataFrame
+        """
+        return self.data.copy()
+
 
 def tableau_reg_logistique_distribution(df, dep_var, indep_var, weight=False):
     

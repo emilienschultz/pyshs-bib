@@ -2,7 +2,7 @@
 
 La bibliothèque PySHS a pour but de réunir des outils utiles à un public de praticiens des sciences humaines et sociales francophones pour traiter des données. Elle a pour but de s'enrichir progressivement pour permettre à Python de devenir une alternative (réaliste) à R avec des fonctions facilement utilisable sur les opérations habituelles.
 
-La version actuelle est la 0.1.8
+La version actuelle est la 0.1.13
 
 ## Contenu
 
