@@ -36,9 +36,10 @@ import numpy as np
 from scipy.stats import chi2_contingency
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
+from scipy.stats.distributions import chi2
 
 
-__version__ = "0.1.14"
+__version__ = "0.1.15"
 
 
 def description(df):
