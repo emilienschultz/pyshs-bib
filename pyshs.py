@@ -38,7 +38,7 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
 
-__version__ = "0.1.13"
+__version__ = "0.1.14"
 
 
 def description(df):
