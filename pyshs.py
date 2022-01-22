@@ -1,7 +1,7 @@
 """
-Module PySHS - Faciliter le traitement statistique en SHS
+PySHS - Faciliter le traitement de données en SHS
 Langue : Français
-Dernière modification : 24/11/2021
+Dernière modification : 22/02/2022
 Auteur : Émilien Schultz
 Contributeurs :
 - Matthias Bussonnier
@@ -11,7 +11,8 @@ Contributeurs :
 Pour le moment le module PySHS comprend :
 
 - une fonction de description du tableau
-- une fonction pour le tri à plat (pondérés)
+- une fonction de comparaison de deux colonnes pour voir le recodage
+- une fonction pour le tri à plat (pondéré)
 - une fonction pour les tableaux croisés (pondérés)
 - une fonction pour des tableaux croisés multiples (pondérés) afin de voir le lien variable dépendante/indépendantes
 - une fonction pour un tableau croisé à trois variables pour en contrôler une lors de l'analyse
@@ -24,22 +25,28 @@ Temporairement :
 
 À faire :
 - cercle de corrélation pour l'ACP
-- vérifier la régression logistique pour des variables quantitatives
+- vérifier la régression logistique pour des variables quantitatives & effets d'interaction
 
 
 """
 
 
+import numpy as np
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
-import numpy as np
+
 from scipy.stats import chi2_contingency
-import statsmodels.api as sm
-import statsmodels.formula.api as smf
 from scipy.stats.distributions import chi2
 
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
 
-__version__ = "0.1.15"
+import plotly.graph_objects as go
+import plotly.express as pex
+
+
+
+__version__ = "0.2.0"
 
 
 def description(df):
@@ -69,7 +76,7 @@ def description(df):
     return tableau.fillna(" ")
 
 
-def tri_a_plat(df, variable, weight=False):
+def tri_a_plat(df, variable, weight=False, ro=1):
     """
     Tri à plat pour une variable qualitative pondérée ou non.
 
@@ -80,6 +87,8 @@ def tri_a_plat(df, variable, weight=False):
         column name
     weight : string (optionnal)
         column name for the weigthing
+    ro: int (optionnal)
+        number of digits to round
 
     Returns
     -------
@@ -102,15 +111,15 @@ def tri_a_plat(df, variable, weight=False):
     # Cas de données non pondérées
     if not weight:
         effectif = df[variable].value_counts()
-        pourcentage = round(100 * df[variable].value_counts(normalize=True), 1)
+        pourcentage = round(100 * df[variable].value_counts(normalize=True), ro)
         tableau = pd.DataFrame([effectif, pourcentage]).T
         tableau.columns = ["Effectif", "Pourcentage (%)"]
 
     # Cas des données pondérées
     else:
-        effectif = round(df.groupby(variable)[weight].sum(), 1)
+        effectif = round(df.groupby(variable)[weight].sum(), ro)
         total = effectif.sum()
-        pourcentage = round(100 * effectif / total, 1)
+        pourcentage = round(100 * effectif / total, ro)
         tableau = pd.DataFrame([effectif, pourcentage]).T
         tableau.columns = ["Effectif redressé", "Pourcentage (%)"]
 
@@ -119,12 +128,97 @@ def tri_a_plat(df, variable, weight=False):
     tableau = tableau.sort_index()
 
     # Ajout de la ligne total
-    tableau.loc["Total"] = [effectif.sum(),pourcentage.sum()]
+    tableau.loc["Total"] = [effectif.sum(),round(pourcentage.sum(),ro)]
 
     return tableau
 
 
-def tableau_croise(df, c1, c2, weight=False, p=False, debug=False):
+def verification_recodage(corpus,c1,c2):
+    """
+    Comparer une variable recodée qualitatives avec la variable initiale
+    
+
+    Parameters
+    ----------
+    corpus : DataFrame
+    c1 : str
+        column name
+    c2 : str
+        column name
+
+    Returns
+    -------
+    None
+
+    Comments
+    --------
+    Pour le moment uniquement de l'affichage
+
+    """
+    
+    # Vérifier que les deux colonnes sont distinctes
+    if c1==c2:
+        print("Ce sont les mêmes colonnes")
+        return None
+    
+    # Vérifier que les deux variables sont bien dans le corpus
+    if c1 not in corpus.columns:
+        print("La variable %s n'est pas dans le tableau" % c1)
+        return None
+    if c2 not in corpus.columns:
+        print("La variable %s n'est pas dans le tableau" % c2)
+        return None
+    
+    # Vérification s'il y a des valeurs manquantes dans la colonne d'arrivée
+    s = pd.isnull(corpus[c2]).sum()
+    if s>0:
+        print("Il y a %d valeurs nulles dans la colonne recodée"%s)
+    
+    # renommer et modifier les labels pour éviter les homonymies
+    df = corpus[[c1,c2]].copy()
+    df[c1] = df[c1].fillna("None").apply(lambda x : str(x)+"(1)")
+    df[c2] = df[c2].fillna("None").apply(lambda x : str(x)+"(2)")
+    
+    # tableau croisé des deux variables
+    t = pd.crosstab(df[c2],df[c1])
+    
+    # création des relations
+    t_flat = t.unstack() #Déplier le tableau croisé
+    links = []
+    for i,j in zip(t_flat.index,t_flat):
+        links.append([i[0],i[1],j])
+
+    # éléments pour définir le diagramme de Sankey avec plotly
+    all_nodes = list(t.index) + list(t.columns)
+    source_indices = [all_nodes.index(i[0]) for i in links]
+    target_indices = [all_nodes.index(i[1]) for i in links]
+    values = [i[2] for i in links]
+    node_colors = ["orange"]*len(t.index) + ["blue"]*len(t.columns)
+
+    # Création de la figure
+    fig = go.Figure(data=[go.Sankey(
+        # Define nodes
+        node = dict(
+          label =  all_nodes,
+          color =  node_colors
+        ),
+
+        # Add links
+        link = dict(
+          source =  source_indices,
+          target =  target_indices,
+          value =  values,
+          #color = edge_colors,
+    ))])
+
+    fig.update_layout(title_text="Colonne %s à colonne %s" % (c1,c2),
+                      font_size=10,height=500,width=600)
+    fig.show()
+    return None
+
+
+
+def tableau_croise(df, c1, c2, weight=False, p=False, debug=False, ro=1):
     """
     Tableau croisé pour deux variables qualitatives, avec
     présentation des pourcentages par ligne.
@@ -140,6 +234,8 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False):
         calculate the chi2 test for the table
     debug : bool (optionnel)
         return intermediate tables (raw)
+    ro: int (optionnal)
+        number of digits to round
 
     Returns
     -------
@@ -168,10 +264,10 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False):
 
     # Tableau effectif avec distribution marginales
     t_absolu = round(
-        pd.crosstab(df[c1], df[c2], df[weight], aggfunc=sum, margins=True), 1
+        pd.crosstab(df[c1], df[c2], df[weight], aggfunc=sum, margins=True), ro
     ).fillna(0)
     # Tableau pourcentages par ligne (enlever la colonne totale)
-    t_pourcentage = t_absolu.drop("All",axis=1).apply(lambda x: 100 * x / sum(x), axis=1)
+    t_pourcentage = t_absolu.drop("All",axis=1).apply(lambda x: round(100 * x / sum(x),ro), axis=1)
 
     # Mise en forme du tableau avec les pourcentages
     t = t_absolu.copy()
@@ -180,7 +276,7 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False):
             t.iloc[i, j] = (
                 str(t_absolu.iloc[i, j])
                 + " ("
-                + str(round(t_pourcentage.iloc[i, j], 1))
+                + str(round(t_pourcentage.iloc[i, j], ro))
                 + "%)"
             )
 
@@ -264,7 +360,7 @@ def tableau_croise_controle(df, cont, c, r, weight=False, chi2=False):
     return tab
 
 
-def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True, axis = 0):
+def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True, axis = 0, ss_total=True):
     """
     Tableau croisé multiple une variable dépendantes/plusieurs indépendantes.
 
@@ -276,7 +372,8 @@ def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True, axis = 0):
     indeps : dict ou list
         dictionnaire des variables indépendantes et leur label pour le tableau
     weight : optionnel, colonne de la pondération
-    axis : orientation des pourcentages, axis = 1 pour les colonnes
+    axis : optionnel, orientation des pourcentages, axis = 1 pour les colonnes
+    ss_total : optionnel, présence de sous totaux
 
     Returns
     -------
@@ -323,8 +420,12 @@ def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True, axis = 0):
             t, p = tableau_croise(df, dep, i, weight, p=True)
             t = t.T
 
+        # Enlever les sous-totaux si besoin
+        if not ss_total:
+            t = t.drop("Total")
+
         dis = tri_a_plat(df,i)
-        t.index.values[-1] = "Total"
+
         check_total.append(t.iloc[-1,-1])
         t["Distribution"] = dis["Pourcentage (%)"].apply(lambda x : "{}%".format(x))
         if chi2:
@@ -583,49 +684,6 @@ def likelihood_ratio(mod, mod_r):
 # ----------------------------------------------------------------------
 # Classes et fonctions temporaires non finalisées
 
-class bdd_spss():
-    """
-    Wrapper objet for SPSS .sav files
-    """
-    def __init__(self, path):
-        
-        # charger avec pyreadstat
-        self.path = path
-        self.data,self.meta = pyreadstat.read_sav(self.path)
-        self.description = pd.DataFrame([pd.Series(self.meta.column_names_to_labels),
-              pd.Series(self.meta.variable_value_labels)]).T
-        self.description.columns = ["Question","Modalités"]
-        
-        # un df avec les modalités explicite
-        self.data_mod = self.data.copy()
-        for i,j in bdd.description.iterrows():
-            if pd.notnull(j["Modalités"]):
-                self.data_mod[i] = self.data_mod[i].replace(j["Modalités"])
-                
-    def __repr__(self):
-        return self.path
-        
-    def info(self,var):
-        """
-        Information about a variable
-        """
-        if not var in self.description.index:
-            return "Variable absence de la base de donnée"
-        return self.description.loc[var]
-    
-    def mod(self,var):
-        """
-        Return modalities of a variable (to use with replace)
-        """
-        if not var in self.description.index:
-            return "Variable absence de la base de donnée"
-        return self.description.loc[var]["Modalités"]
-    
-    def get_data(self):
-        """
-        Copy the DataFrame
-        """
-        return self.data.copy()
 
 
 def tableau_reg_logistique_distribution(df, dep_var, indep_var, weight=False):

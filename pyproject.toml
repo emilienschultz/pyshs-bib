@@ -6,7 +6,14 @@ build-backend = "flit_core.buildapi"
 module = "pyshs"
 author = "Emilien Schultz"
 author-email = "emilien.schultz@gmail.com"
-home-page = "http://pyshs.fr"
+home-page = "https://github.com/emilienschultz/pyshs-bib"
 classifiers = [ "License :: OSI Approved :: MIT License",]
 description-file = "README.md"
+requires = [
+    "pandas",
+    "numpy",
+    "statsmodels",
+    "scipy",
+    "plotly"
+]
 
