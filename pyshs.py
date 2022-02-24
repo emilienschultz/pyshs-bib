@@ -46,7 +46,7 @@ import plotly.express as pex
 
 
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 
 def description(df):
@@ -424,7 +424,7 @@ def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True, axis = 0, 
         if not ss_total:
             t = t.drop("Total")
 
-        dis = tri_a_plat(df,i)
+        dis = tri_a_plat(df,i,weight = weight)
 
         check_total.append(t.iloc[-1,-1])
         t["Distribution"] = dis["Pourcentage (%)"].apply(lambda x : "{}%".format(x))
