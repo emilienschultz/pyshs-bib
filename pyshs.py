@@ -87,7 +87,7 @@ def tri_a_plat(df, variable, weight=False, ro=1):
         column name
     weight : string (optionnal)
         column name for the weigthing
-    ro: int (optionnal)
+    ro : int (optionnal)
         number of digits to round
 
     Returns
@@ -95,8 +95,8 @@ def tri_a_plat(df, variable, weight=False, ro=1):
     DataFrame
         Tri à plat mis en forme
 
-    Comments
-    --------
+    Notes
+    -----
     Pas de gestion des valeurs manquantes actuellement
 
     """
@@ -136,7 +136,6 @@ def tri_a_plat(df, variable, weight=False, ro=1):
 def verification_recodage(corpus,c1,c2):
     """
     Comparer une variable recodée qualitatives avec la variable initiale
-    
 
     Parameters
     ----------
@@ -150,8 +149,8 @@ def verification_recodage(corpus,c1,c2):
     -------
     None
 
-    Comments
-    --------
+    Notes
+    -----
     Pour le moment uniquement de l'affichage
 
     """
@@ -234,7 +233,7 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False, ro=1):
         calculate the chi2 test for the table
     debug : bool (optionnel)
         return intermediate tables (raw)
-    ro: int (optionnal)
+    ro : int (optionnal)
         number of digits to round
 
     Returns
@@ -242,8 +241,8 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False, ro=1):
     crosstab : DataFrame
         Tableau croisé mis en forme
 
-    Comments
-    --------
+    Notes
+    -----
     Pas de gestion des valeurs manquantes actuellement, qui ne sont donc pas comptées
 
     """
@@ -317,8 +316,8 @@ def tableau_croise_controle(df, cont, c, r, weight=False, chi2=False):
     crosstab : DataFrame
         Tableau croisé mis en forme
 
-    Comments
-    --------
+    Notes
+    -----
     Pas de gestion des valeurs manquantes actuellement, qui ne sont donc pas comptées
 
     """
@@ -381,8 +380,8 @@ def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True, axis = 0, 
         mis en forme du tableau croisé avec pourcentages par ligne et tri croisé
         sur total p-value indicative par un chi2
 
-    Comments
-    --------
+    Notes
+    -----
     Manque une colonne tri à plat
 
     """
@@ -483,25 +482,25 @@ def significativite(x, digits=4):
 def tableau_reg_logistique(regression, data, indep_var, sig=True):
     """
     Mise en forme des résultats de la régression logistique issue de Statsmodel
-    pour une lecture habituelle en SHS. 
+    pour une lecture habituelle en SHS.
 
     Prend en compte aussi les effets d'interaction *
 
     Parameters
     ----------
-    regression: statsmodel object from GLM
-    df: DataFrame
-     Database to extract modalities
-    indep_var: dictionnary
-     column of the variable / Label to use in the table
-    sig: bool (optionnal)
+    regression : statsmodel object from GLM
+    data : DataFrame
+        Database to extract modalities
+    indep_var : dictionnary
+        column of the variable / Label to use in the table
+    sig : bool (optionnal)
 
     Returns
     -------
     DataFrame : table for the results
 
-    Comments
-    --------
+    Notes
+    -----
     For the moment, intercept is in the middle of the table ...
 
     Examples
@@ -596,25 +595,25 @@ def construction_formule(dep,indep):
 def regression_logistique(df,dep_var,indep_var,weight=False,table_only=True):
     """
     Régression logistique binomiale pondérée
-    
+
     Parameters
     ----------
-    df: DataFrame
-     Database
+    df : DataFrame
+        Database
     dep_var : String
-     Name of the binomiale variable
-    indep_var: dictionnary or list
-     column of the variable / Label to use in the table
-    weight: String (optionnal)
-     column of the weighting
-    table_only: if True, return the model
-    
+        Name of the binomiale variable
+    indep_var : dictionnary or list
+        column of the variable / Label to use in the table
+    weight : String (optionnal)
+        column of the weighting
+    table_only : if True, return the model
+
     Returns
     -------
     DataFrame : table for the results, or the model if table_only=Trye
 
-    Comments
-    --------
+    Notes
+    -----
     No space in the names of the variables
     BETA VERSION BE CAREFUL NEED CHECKING
 
@@ -659,16 +658,16 @@ def likelihood_ratio(mod, mod_r):
     Parameters
     ----------
     mod : statsmodel object from GLM
-     First model to compare
+        First model to compare
     mod_r : statsmodel object from GLM
-     Second model to compare at
-    
+        Second model to compare at
+
     Returns
     -------
     float : p-value of the likelihood ratio
 
-    Comments
-    --------
+    Notes
+    -----
     Source : http://rnowling.github.io/machine/learning/2017/10/07/likelihood-ratio-test.html
     Testé en Rstats avec lmtest
     """
