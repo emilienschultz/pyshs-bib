@@ -42,7 +42,6 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
 import plotly.graph_objects as go
-import plotly.express as pex
 
 
 
