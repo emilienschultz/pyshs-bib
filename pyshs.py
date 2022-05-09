@@ -44,7 +44,6 @@ import statsmodels.formula.api as smf
 import plotly.graph_objects as go
 
 
-
 __version__ = "0.2.1"
 
 
@@ -65,13 +64,38 @@ def description(df):
     tableau = []
     for i in df.columns:
         if is_numeric_dtype(df[i]):
-            l = [i,"Numérique",None,None,round(df[i].mean(),2),round(df[i].std(),2),pd.isnull(df[i]).sum()]
+            l = [
+                i,
+                "Numérique",
+                None,
+                None,
+                round(df[i].mean(), 2),
+                round(df[i].std(), 2),
+                pd.isnull(df[i]).sum(),
+            ]
         else:
-            l = [i,"Catégorielle",len(df[i].unique()),df[i].mode().iloc[0],None,None,pd.isnull(df[i]).sum()]
+            l = [
+                i,
+                "Catégorielle",
+                len(df[i].unique()),
+                df[i].mode().iloc[0],
+                None,
+                None,
+                pd.isnull(df[i]).sum(),
+            ]
         tableau.append(l)
-    tableau = pd.DataFrame(tableau,
-            columns=["Variable","Type","Modalités","Mode",
-                     "Moyenne","Écart-type","Valeurs manquantes"]).set_index("Variable")
+    tableau = pd.DataFrame(
+        tableau,
+        columns=[
+            "Variable",
+            "Type",
+            "Modalités",
+            "Mode",
+            "Moyenne",
+            "Écart-type",
+            "Valeurs manquantes",
+        ],
+    ).set_index("Variable")
     return tableau.fillna(" ")
 
 
@@ -127,12 +151,12 @@ def tri_a_plat(df, variable, weight=False, ro=1):
     tableau = tableau.sort_index()
 
     # Ajout de la ligne total
-    tableau.loc["Total"] = [effectif.sum(),round(pourcentage.sum(),ro)]
+    tableau.loc["Total"] = [effectif.sum(), round(pourcentage.sum(), ro)]
 
     return tableau
 
 
-def verification_recodage(corpus,c1,c2):
+def verification_recodage(corpus, c1, c2):
     """
     Comparer une variable recodée qualitatives avec la variable initiale
 
@@ -153,12 +177,12 @@ def verification_recodage(corpus,c1,c2):
     Pour le moment uniquement de l'affichage
 
     """
-    
+
     # Vérifier que les deux colonnes sont distinctes
-    if c1==c2:
+    if c1 == c2:
         print("Ce sont les mêmes colonnes")
         return None
-    
+
     # Vérifier que les deux variables sont bien dans le corpus
     if c1 not in corpus.columns:
         print("La variable %s n'est pas dans le tableau" % c1)
@@ -166,54 +190,58 @@ def verification_recodage(corpus,c1,c2):
     if c2 not in corpus.columns:
         print("La variable %s n'est pas dans le tableau" % c2)
         return None
-    
+
     # Vérification s'il y a des valeurs manquantes dans la colonne d'arrivée
     s = pd.isnull(corpus[c2]).sum()
-    if s>0:
-        print("Il y a %d valeurs nulles dans la colonne recodée"%s)
-    
+    if s > 0:
+        print("Il y a %d valeurs nulles dans la colonne recodée" % s)
+
     # renommer et modifier les labels pour éviter les homonymies
-    df = corpus[[c1,c2]].copy()
-    df[c1] = df[c1].fillna("None").apply(lambda x : str(x)+"(1)")
-    df[c2] = df[c2].fillna("None").apply(lambda x : str(x)+"(2)")
-    
+    df = corpus[[c1, c2]].copy()
+    df[c1] = df[c1].fillna("None").apply(lambda x: str(x) + "(1)")
+    df[c2] = df[c2].fillna("None").apply(lambda x: str(x) + "(2)")
+
     # tableau croisé des deux variables
-    t = pd.crosstab(df[c2],df[c1])
-    
+    t = pd.crosstab(df[c2], df[c1])
+
     # création des relations
-    t_flat = t.unstack() #Déplier le tableau croisé
+    t_flat = t.unstack()  # Déplier le tableau croisé
     links = []
-    for i,j in zip(t_flat.index,t_flat):
-        links.append([i[0],i[1],j])
+    for i, j in zip(t_flat.index, t_flat):
+        links.append([i[0], i[1], j])
 
     # éléments pour définir le diagramme de Sankey avec plotly
     all_nodes = list(t.index) + list(t.columns)
     source_indices = [all_nodes.index(i[0]) for i in links]
     target_indices = [all_nodes.index(i[1]) for i in links]
     values = [i[2] for i in links]
-    node_colors = ["orange"]*len(t.index) + ["blue"]*len(t.columns)
+    node_colors = ["orange"] * len(t.index) + ["blue"] * len(t.columns)
 
     # Création de la figure
-    fig = go.Figure(data=[go.Sankey(
-        # Define nodes
-        node = dict(
-          label =  all_nodes,
-          color =  node_colors
-        ),
+    fig = go.Figure(
+        data=[
+            go.Sankey(
+                # Define nodes
+                node=dict(label=all_nodes, color=node_colors),
+                # Add links
+                link=dict(
+                    source=source_indices,
+                    target=target_indices,
+                    value=values,
+                    # color = edge_colors,
+                ),
+            )
+        ]
+    )
 
-        # Add links
-        link = dict(
-          source =  source_indices,
-          target =  target_indices,
-          value =  values,
-          #color = edge_colors,
-    ))])
-
-    fig.update_layout(title_text="Colonne %s à colonne %s" % (c1,c2),
-                      font_size=10,height=500,width=600)
+    fig.update_layout(
+        title_text="Colonne %s à colonne %s" % (c1, c2),
+        font_size=10,
+        height=500,
+        width=600,
+    )
     fig.show()
     return None
-
 
 
 def tableau_croise(df, c1, c2, weight=False, p=False, debug=False, ro=1):
@@ -265,7 +293,9 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False, ro=1):
         pd.crosstab(df[c1], df[c2], df[weight], aggfunc=sum, margins=True), ro
     ).fillna(0)
     # Tableau pourcentages par ligne (enlever la colonne totale)
-    t_pourcentage = t_absolu.drop("All",axis=1).apply(lambda x: round(100 * x / sum(x),ro), axis=1)
+    t_pourcentage = t_absolu.drop("All", axis=1).apply(
+        lambda x: round(100 * x / sum(x), ro), axis=1
+    )
 
     # Mise en forme du tableau avec les pourcentages
     t = t_absolu.copy()
@@ -279,22 +309,23 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False, ro=1):
             )
 
     # Ajout des 100% pour la ligne colonne
-    t["All"] = t["All"].apply(lambda x : "{} (100%)".format(x))
+    t["All"] = t["All"].apply(lambda x: "{} (100%)".format(x))
 
     # Traduire All par Total
-    t.columns = list(t.columns)[:-1]+["Total"]
-    t.index = list(t.index)[:-1]+["Total"]
-            
+    t.columns = list(t.columns)[:-1] + ["Total"]
+    t.index = list(t.index)[:-1] + ["Total"]
+
     # Retour des tableaux non mis en forme
     if debug:
         return t, t_absolu, t_pourcentage
 
     # Retour du tableau avec la p-value
     if p:
-        return t, chi2_contingency(t_absolu.drop("All").drop("All",axis=1))[1]
+        return t, chi2_contingency(t_absolu.drop("All").drop("All", axis=1))[1]
 
     # Retour du tableau mis en forme
     return t
+
 
 def tableau_croise_controle(df, cont, c, r, weight=False, chi2=False):
     """
@@ -336,29 +367,31 @@ def tableau_croise_controle(df, cont, c, r, weight=False, chi2=False):
         weight = "weight"
 
     tab = {}
-    mod = df[cont].unique() # modalités de contrôle
+    mod = df[cont].unique()  # modalités de contrôle
     for i in mod:
-        d = df[df[cont]==i] # sous-ensemble
-        t,p = tableau_croise(d, c, r, weight, p=True)
+        d = df[df[cont] == i]  # sous-ensemble
+        t, p = tableau_croise(d, c, r, weight, p=True)
         # Mettre Total plutôt que All dans le tableau
-        t.columns = list(t.columns)[:-1]+["Total"]
-        t.index = list(t.index)[:-1]+["Total"]
+        t.columns = list(t.columns)[:-1] + ["Total"]
+        t.index = list(t.index)[:-1] + ["Total"]
 
         # Construire le tableau avec ou sans le chi2
         if chi2:
             tab[i + " (p = %.3f)" % p] = t
         else:
             tab[i] = t
-        
+
     # Mise en forme du tableau
     tab = pd.concat(tab)
-    tab.index.names = [cont,c]
+    tab.index.names = [cont, c]
 
     # Retour du tableau mis en forme
     return tab
 
 
-def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True, axis = 0, ss_total=True):
+def tableau_croise_multiple(
+    df, dep, indeps, weight=False, chi2=True, axis=0, ss_total=True
+):
     """
     Tableau croisé multiple une variable dépendantes/plusieurs indépendantes.
 
@@ -389,7 +422,7 @@ def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True, axis = 0, 
     if not isinstance(df, pd.DataFrame):
         print("Attention, ce n'est pas un tableau Pandas")
         return None
-    if (type(indeps)!=list) and (type(indeps)!=dict):
+    if (type(indeps) != list) and (type(indeps) != dict):
         print("Les variables ne sont pas renseignées sous le bon format")
         return None
     if dep not in df.columns:
@@ -398,12 +431,12 @@ def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True, axis = 0, 
     for i in indeps:
         if i not in df.columns:
             print("La variable {} n'est pas dans le tableau".format(i))
-            return None        
+            return None
 
     # Noms des variables
     if type(indeps) == list:
-        indeps = {i:i for i in indeps}
-        
+        indeps = {i: i for i in indeps}
+
     t_all = {}
 
     # Compteur des totaux par croisement
@@ -422,15 +455,15 @@ def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True, axis = 0, 
         if not ss_total:
             t = t.drop("Total")
 
-        dis = tri_a_plat(df,i,weight = weight)
+        dis = tri_a_plat(df, i, weight=weight)
 
-        check_total.append(t.iloc[-1,-1])
-        t["Distribution"] = dis["Pourcentage (%)"].apply(lambda x : "{}%".format(x))
+        check_total.append(t.iloc[-1, -1])
+        t["Distribution"] = dis["Pourcentage (%)"].apply(lambda x: "{}%".format(x))
         if chi2:
             t_all[indeps[i] + " (p = %.03f)" % p] = t
         else:
             t_all[indeps[i]] = t
-            
+
     # Création d'un DataFrame
     t_all = pd.concat(t_all)
     t_all.columns.name = ""
@@ -438,11 +471,10 @@ def tableau_croise_multiple(df, dep, indeps, weight=False, chi2=True, axis = 0, 
     t_all.columns.values[-2] = "Total"
 
     # Alerter sur les totaux différents
-    if len(set(check_total))!=1:
+    if len(set(check_total)) != 1:
         print("Attention, les totaux par tableaux sont différents (valeurs manquantes)")
 
     return t_all
-
 
 
 def significativite(x, digits=4):
@@ -517,13 +549,12 @@ def tableau_reg_logistique(regression, data, indep_var, sig=True):
     # Séparation des variables et des effets d'interaction
     indep_var_unique = {}
     for v in indep_var:
-        if "*" in v: #cas d'une interaction
+        if "*" in v:  # cas d'une interaction
             for e in v.split("*"):
                 if not e.strip() in indep_var_unique:
-                    indep_var_unique[e.strip()] =  e.strip()
+                    indep_var_unique[e.strip()] = e.strip()
         else:
             indep_var_unique[v] = indep_var[v]
-
 
     # Mise en forme du tableau général OR /
     table = np.exp(regression.conf_int())
@@ -552,8 +583,8 @@ def tableau_reg_logistique(regression, data, indep_var, sig=True):
     refs = []
     for v in indep_var_unique:
         if not v in var_num:
-            r = sorted(data[v].dropna().unique())[0] #premier élément
-            refs.append(str(v) + "[T." + str(r) + "]") #ajout de la référence
+            r = sorted(data[v].dropna().unique())[0]  # premier élément
+            refs.append(str(v) + "[T." + str(r) + "]")  # ajout de la référence
 
     # Ajout des références dans le tableau
     for i in refs:
@@ -562,15 +593,16 @@ def tableau_reg_logistique(regression, data, indep_var, sig=True):
     # Création d'un MultiIndex Pandas par variable
     new_index = []
     for i in table.index:
-        if ":" in i: # cas où c'est une ligne d'interaction
-            new_index.append(("var. interaction", i.replace("T.","")))
+        if ":" in i:  # cas où c'est une ligne d'interaction
+            new_index.append(("var. interaction", i.replace("T.", "")))
         else:
-            if "[T." in i: # Si c'est une variable catégorielle
+            if "[T." in i:  # Si c'est une variable catégorielle
                 tmp = i.split("[T.")
-                new_index.append((indep_var_unique[tmp[0]], tmp[1][0:-1]))  # gérer l'absence dans le dictionnaire
+                new_index.append(
+                    (indep_var_unique[tmp[0]], tmp[1][0:-1])
+                )  # gérer l'absence dans le dictionnaire
             else:
                 new_index.append((indep_var_unique[i], "numérique"))
-
 
     # Réintégration de l'Intercept dans le tableau
     new_index.append((".Intercept", ""))
@@ -584,14 +616,14 @@ def tableau_reg_logistique(regression, data, indep_var, sig=True):
     return table
 
 
-def construction_formule(dep,indep):
+def construction_formule(dep, indep):
     """
     Construit une formule de modèle à partir d'une liste de variables
     """
     return dep + " ~ " + " + ".join([i for i in indep])
 
 
-def regression_logistique(df,dep_var,indep_var,weight=False,table_only=True):
+def regression_logistique(df, dep_var, indep_var, weight=False, table_only=True):
     """
     Régression logistique binomiale pondérée
 
@@ -617,34 +649,36 @@ def regression_logistique(df,dep_var,indep_var,weight=False,table_only=True):
     BETA VERSION BE CAREFUL NEED CHECKING
 
     """
-    
+
     # S'il n'y a pas de pondération définie
     if not weight:
         df["weight"] = 1
         weight = "weight"
 
     # Vérifier que les variables ne contiennent pas de variables
-    if len([i for i in indep_var if " " in i])>0:
-        print("Attention, au moins un nom de variable contient un espace. Veuillez l'enlever.")
+    if len([i for i in indep_var if " " in i]) > 0:
+        print(
+            "Attention, au moins un nom de variable contient un espace. Veuillez l'enlever."
+        )
         print([i for i in indep_var if " " in i])
         return None
-        
+
     # Mettre les variables indépendantes en dictionnaire si nécessaire
-    if type(indep_var)==list:
-        indep_var = {i:i for i in indep_var}
-    
+    if type(indep_var) == list:
+        indep_var = {i: i for i in indep_var}
+
     # Construction de la formule
-    f = construction_formule(dep_var,indep_var)
-    
+    f = construction_formule(dep_var, indep_var)
+
     # Création du modèle
-    modele = smf.glm(formula=f, data=df, 
-                     family=sm.families.Binomial(), 
-                     freq_weights=df[weight])
+    modele = smf.glm(
+        formula=f, data=df, family=sm.families.Binomial(), freq_weights=df[weight]
+    )
     regression = modele.fit()
-        
+
     # Retourner le tableau de présentation
     if table_only:
-        tableau = tableau_reg_logistique(regression,df,indep_var,sig=True)
+        tableau = tableau_reg_logistique(regression, df, indep_var, sig=True)
         return tableau
     else:
         return regression
@@ -670,45 +704,49 @@ def likelihood_ratio(mod, mod_r):
     Source : http://rnowling.github.io/machine/learning/2017/10/07/likelihood-ratio-test.html
     Testé en Rstats avec lmtest
     """
-    val = [mod.llf,mod_r.llf]
-    LR = 2*(max(val)-min(val)) #rapport de déviance
-    
-    val = [mod.df_model,mod_r.df_model]
-    diff_df = max(val)-min(val) #différence de ddf
+    val = [mod.llf, mod_r.llf]
+    LR = 2 * (max(val) - min(val))  # rapport de déviance
 
-    p = chi2.sf(LR,diff_df) #test de la significativité
+    val = [mod.df_model, mod_r.df_model]
+    diff_df = max(val) - min(val)  # différence de ddf
+
+    p = chi2.sf(LR, diff_df)  # test de la significativité
     return p
+
 
 # ----------------------------------------------------------------------
 # Classes et fonctions temporaires non finalisées
 
 
-
 def tableau_reg_logistique_distribution(df, dep_var, indep_var, weight=False):
-    
+
     # Noms des variables
     if type(indep_var) == list:
-        indep_var = {i:i for i in indep_var}
-        
+        indep_var = {i: i for i in indep_var}
+
     # régression logistique
-    reg = regression_logistique(df,dep_var,indep_var,weight = weight,table_only=True)
-    
+    reg = regression_logistique(df, dep_var, indep_var, weight=weight, table_only=True)
+
     # Distribution
     dis = {}
     for i in indep_var:
-        dis[indep_var[i]] = tri_a_plat(df,i,weight=weight)["Pourcentage (%)"].drop("Total")
-    dis = pd.concat(dis,axis=0)
-    dis.index.names = ['Variable', 'Modalité']
+        dis[indep_var[i]] = tri_a_plat(df, i, weight=weight)["Pourcentage (%)"].drop(
+            "Total"
+        )
+    dis = pd.concat(dis, axis=0)
+    dis.index.names = ["Variable", "Modalité"]
 
     # garder uniquement l'étoile ...
-    reg["s"] = reg["p"].apply(lambda x : "" if pd.isnull(x) else "".join([i for i in x if i=="*"]))
+    reg["s"] = reg["p"].apply(
+        lambda x: "" if pd.isnull(x) else "".join([i for i in x if i == "*"])
+    )
 
-    tab = reg[["IC 95%","s"]].join(dis)
+    tab = reg[["IC 95%", "s"]].join(dis)
 
     # ajout étoile
-    tab["IC 95%"] = tab.apply(lambda x : str(x["IC 95%"])+" "+x["s"],axis=1)
+    tab["IC 95%"] = tab.apply(lambda x: str(x["IC 95%"]) + " " + x["s"], axis=1)
 
-    return tab[["Pourcentage (%)","IC 95%"]]
+    return tab[["Pourcentage (%)", "IC 95%"]]
 
 
 def cramers_corrected_stat(confusion_matrix):
