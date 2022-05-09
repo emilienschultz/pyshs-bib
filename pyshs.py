@@ -29,6 +29,7 @@ Temporairement :
 
 
 """
+import warnings
 
 
 import numpy as np
@@ -125,10 +126,10 @@ def tri_a_plat(df, variable, weight=False, ro=1):
     """
     # Tester le format de l'entrée
     if not isinstance(df, pd.DataFrame):
-        print("Attention, ce n'est pas un tableau Pandas")
+        warnings.warn("Attention, ce n'est pas un tableau Pandas", UserWarning)
         return None
     if variable not in df.columns:
-        print("Attention, la variable n'est pas dans le tableau")
+        warnings.warn("Attention, la variable n'est pas dans le tableau", UserWarning)
         return None
 
     # Cas de données non pondérées
@@ -180,21 +181,23 @@ def verification_recodage(corpus, c1, c2):
 
     # Vérifier que les deux colonnes sont distinctes
     if c1 == c2:
-        print("Ce sont les mêmes colonnes")
+        warnings.warn("Ce sont les mêmes colonnes", UserWarning)
         return None
 
     # Vérifier que les deux variables sont bien dans le corpus
     if c1 not in corpus.columns:
-        print("La variable %s n'est pas dans le tableau" % c1)
+        warnings.warn("La variable %s n'est pas dans le tableau" % c1, UserWarning)
         return None
     if c2 not in corpus.columns:
-        print("La variable %s n'est pas dans le tableau" % c2)
+        warnings.warn("La variable %s n'est pas dans le tableau" % c2, UserWarning)
         return None
 
     # Vérification s'il y a des valeurs manquantes dans la colonne d'arrivée
     s = pd.isnull(corpus[c2]).sum()
     if s > 0:
-        print("Il y a %d valeurs nulles dans la colonne recodée" % s)
+        warnings.warn(
+            "Il y a %d valeurs nulles dans la colonne recodée" % s, UserWarning
+        )
 
     # renommer et modifier les labels pour éviter les homonymies
     df = corpus[[c1, c2]].copy()
@@ -276,10 +279,12 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False, ro=1):
 
     # Tester le format de l'entrée
     if not isinstance(df, pd.DataFrame):
-        print("Attention, ce n'est pas un tableau Pandas")
+        warnings.warn("Attention, ce n'est pas un tableau Pandas", UserWarning)
         return None
     if c1 not in df.columns or c2 not in df.columns:
-        print("Attention, une des variables n'est pas dans le tableau")
+        warnings.warn(
+            "Attention, une des variables n'est pas dans le tableau", UserWarning
+        )
         return None
 
     # Si les données ne sont pas pondérées, création d'une pondération unitaire
@@ -354,10 +359,12 @@ def tableau_croise_controle(df, cont, c, r, weight=False, chi2=False):
 
     # Tester le format de l'entrée
     if not isinstance(df, pd.DataFrame):
-        print("Attention, ce n'est pas un tableau Pandas")
+        warnings.warn("Attention, ce n'est pas un tableau Pandas", UserWarning)
         return None
     if cont not in df.columns or c not in df.columns or r not in df.columns:
-        print("Attention, une des variables n'est pas dans le tableau")
+        warnings.warn(
+            "Attention, une des variables n'est pas dans le tableau", UserWarning
+        )
         return None
 
     # Si les données ne sont pas pondérées, création d'une pondération unitaire
@@ -420,17 +427,23 @@ def tableau_croise_multiple(
 
     # Tester le format de l'entrée
     if not isinstance(df, pd.DataFrame):
-        print("Attention, ce n'est pas un tableau Pandas")
+        warnings.warn("Attention, ce n'est pas un tableau Pandas", UserWarning)
         return None
     if (type(indeps) != list) and (type(indeps) != dict):
-        print("Les variables ne sont pas renseignées sous le bon format")
+        warnings.warn(
+            "Les variables ne sont pas renseignées sous le bon format", UserWarning
+        )
         return None
     if dep not in df.columns:
-        print("La variable {} n'est pas dans le tableau".format(dep))
+        warnings.warn(
+            "La variable {} n'est pas dans le tableau".format(dep), UserWarning
+        )
         return None
     for i in indeps:
         if i not in df.columns:
-            print("La variable {} n'est pas dans le tableau".format(i))
+            warnings.warn(
+                "La variable {} n'est pas dans le tableau".format(i), UserWarning
+            )
             return None
 
     # Noms des variables
@@ -472,7 +485,9 @@ def tableau_croise_multiple(
 
     # Alerter sur les totaux différents
     if len(set(check_total)) != 1:
-        print("Attention, les totaux par tableaux sont différents (valeurs manquantes)")
+        warnings.warn(
+            "Attention, les totaux par tableaux sont différents (valeurs manquantes, UserWarning)"
+        )
 
     return t_all
 
@@ -658,9 +673,9 @@ def regression_logistique(df, dep_var, indep_var, weight=False, table_only=True)
     # Vérifier que les variables ne contiennent pas de variables
     if len([i for i in indep_var if " " in i]) > 0:
         print(
-            "Attention, au moins un nom de variable contient un espace. Veuillez l'enlever."
+            "Attention, au moins un nom de variable contient un espace. Veuillez l'enlever.",
+            ",".join([repr(i) for i in indep_var if " " in i]),
         )
-        print([i for i in indep_var if " " in i])
         return None
 
     # Mettre les variables indépendantes en dictionnaire si nécessaire
@@ -721,7 +736,7 @@ def likelihood_ratio(mod, mod_r):
 def tableau_reg_logistique_distribution(df, dep_var, indep_var, weight=False):
 
     # Noms des variables
-    if type(indep_var) == list:
+    if isinstance(indep_var, list):
         indep_var = {i: i for i in indep_var}
 
     # régression logistique
