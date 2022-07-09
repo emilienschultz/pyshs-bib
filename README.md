@@ -24,7 +24,7 @@ La version actuelle est la **0.2.0**
 **Via PyPI**
 
 ```sh
-$ pip install pyshs
+$ pip install pyshs --upgrade
 ```
 
 ## Utilisation
