@@ -33,7 +33,7 @@ def test_tri_a_plat(df_test):
 
 
 def test_tableau_croise(df_test):
-    assert type(pyshs.tableau_croise(df_test, "C2", "C3", "C1")) == pd.DataFrame
+    assert isinstance(pyshs.tableau_croise(df_test, "C2", "C3", "C1"),pd.DataFrame)
 
 
 def test_tableau_croise_multiple(df_test):

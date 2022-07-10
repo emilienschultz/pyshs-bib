@@ -755,7 +755,7 @@ def vers_excel(tables, file):
     curseur = 0  # ligne d'écriture
     # Boucle sur les tableaux
     for title in tables:
-        worksheet.write_string(l, 0, title)  # écriture du titre
+        worksheet.write_string(curseur, 0, title)  # écriture du titre
         tables[title].to_excel(writer, sheet_name="Résultats", startrow=curseur + 2)
         curseur += 2 + tables[title].shape[0] + 3
     writer.save()
