@@ -407,14 +407,14 @@ def tableau_croise_multiple(
     ----------
     df : DataFrame
         Tableau de données
-    dep : str or dic 
+    dep : str or dic
         Variable dépendante en colonne
         Pour les dictionnaires : {nom:label}
     indeps : dict or list
         dictionnaire des variables indépendantes
     weight : str, optionnal
         poids optionnel
-    axis : int, optionnal 
+    axis : int, optionnal
         sens des pourcentages,axis = 1 pour les colonnes
     ss_total : bool, optionnal
         présence de sous totaux
@@ -648,7 +648,7 @@ def construction_formule(dep, indep):
 
     Returns
     -------
-    str : formule de régression    
+    str : formule de régression
 
     """
     return dep + " ~ " + " + ".join([i for i in indep])
@@ -746,11 +746,11 @@ def likelihood_ratio(mod, mod_r):
     return p
 
 
-def vers_excel(tables,file):
+def vers_excel(tables, file):
     """
-    Écriture d'un ensemble de tableaux. 
+    Écriture d'un ensemble de tableaux.
     Dans un fichier excel avec titres.
-    
+
     Parameters
     ----------
     tables : list or dict or DataFrame
@@ -762,38 +762,37 @@ def vers_excel(tables,file):
     -------
     None
     """
-    
-    # Transformation de l'entrée en dictionnaire
+
+    # Transformation de l'entrée en dictionnaire
     if type(tables) == pd.DataFrame:
-        tables = {"":tables}
+        tables = {"": tables}
     if type(tables) == list:
-        tables = {"Tableau %d"%(i+1):j for i,j in enumerate(tables)} 
-    if type(tables)!=dict:
+        tables = {"Tableau %d" % (i + 1): j for i, j in enumerate(tables)}
+    if type(tables) != dict:
         print("Erreur dans le format des données rentrées")
         return None
-    
-    # Ouverture d'un fichier excel
+
+    # Ouverture d'un fichier excel
     if (not ".xlsx" in file) or (not ".xls" in file):
         print("Le fichier a créer n'a pas la bonne extension")
         return None
-    
+
     writer = pd.ExcelWriter(file)
-    workbook=writer.book
-    worksheet=workbook.add_worksheet('Résultats')
-    writer.sheets['Résultats'] = worksheet
-    curseur = 0 #ligne d'écriture
-    # Boucle sur les tableaux
-    for title in tables :
-        worksheet.write_string(l, 0, title) # écriture du titre
-        tables[title].to_excel(writer, 
-                               sheet_name='Résultats', 
-                               startrow=curseur+2)
+    workbook = writer.book
+    worksheet = workbook.add_worksheet("Résultats")
+    writer.sheets["Résultats"] = worksheet
+    curseur = 0  # ligne d'écriture
+    # Boucle sur les tableaux
+    for title in tables:
+        worksheet.write_string(l, 0, title)  # écriture du titre
+        tables[title].to_excel(writer, sheet_name="Résultats", startrow=curseur + 2)
         curseur += 2 + tables[title].shape[0] + 3
-    writer.save() 
-    
+    writer.save()
+
     return None
 
-def moyenne_ponderee(colonne,poids):
+
+def moyenne_ponderee(colonne, poids):
     """
     Calculer une moyenne pondérée.
 
@@ -808,7 +807,8 @@ def moyenne_ponderee(colonne,poids):
     -------
     float : moyenne pondérée
     """
-    return np.average(colonne,weights=poids)
+    return np.average(colonne, weights=poids)
+
 
 def ecart_type_pondere(colonne, poids):
     """
@@ -826,8 +826,9 @@ def ecart_type_pondere(colonne, poids):
     float : écart-type pondéré
     """
     average = np.average(colonne, weights=poids)
-    variance = np.average((colonne-average)**2, weights=poids)
+    variance = np.average((colonne - average) ** 2, weights=poids)
     return math.sqrt(variance)
+
 
 # ----------------------------------------------------------------------
 # Classes et fonctions temporaires non finalisées
