@@ -1,0 +1,47 @@
+name: Run tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.9", "3.10"]
+        # Test all on ubuntu, test ends on macos
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: pip
+    - name: Install and update Python dependencies
+      run: |
+        python -m pip install --upgrade pip setuptools wheel build pytest
+        python -m pip install .
+        python -m pip install --upgrade check-manifest pytest-cov
+    - name: Try building with Python build
+      if: runner.os != 'Windows'  # setup.py does not support sdist on Windows
+      run: |
+        python -m build
+        shasum -a 256 dist/*
+    - name: Check manifest
+      if: runner.os != 'Windows'  # setup.py does not support sdist on Windows
+      run: check-manifest
+    - name: pytest
+      env:
+        COLUMNS: 120
+      run: |
+        pytest --color=yes -raXxs --cov --cov-report=xml
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v2
