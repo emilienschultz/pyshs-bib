@@ -29,17 +29,13 @@ jobs:
       run: |
         python -m pip install --upgrade pip setuptools wheel build pytest
         python -m pip install .
-        python -m pip install --upgrade check-manifest pytest-cov
+        python -m pip install --upgrade pytest-cov
     - name: Try building with Python build
       shell: bash -l {0}
       if: runner.os != 'Windows'  # setup.py does not support sdist on Windows
       run: |
         python -m build
         shasum -a 256 dist/*
-    - name: Check manifest
-      shell: bash -l {0}
-      if: runner.os != 'Windows'  # setup.py does not support sdist on Windows
-      run: check-manifest
     - name: pytest
       shell: bash -l {0}
       env:
