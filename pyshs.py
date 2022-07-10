@@ -1,11 +1,12 @@
 """
-PySHS - Faciliter le traitement de données en SHS
+PySHS - Faciliter le traitement de données de questionnaires en SHS
 Langue : Français
 Dernière modification : 09/07/2022
 Auteur : Émilien Schultz
-Contributeurs :
+Contributeurs.rices :
 - Matthias Bussonnier
 - Léo Mignot
+- Fatima Gauna
 
 Pour le moment le module PySHS comprend :
 
@@ -24,14 +25,8 @@ Temporairement :
 - une fonction de mise en forme différente de la régression logistique, incluant les effets d'interaction (beta)
 - une fonction de test du ratio de vraissemblance de deux régressions
 
-À faire :
-- cercle de corrélation pour l'ACP
-- vérifier la régression logistique pour des variables quantitatives & effets d'interaction
-
-
 """
 import warnings
-
 
 import numpy as np
 import pandas as pd
@@ -46,12 +41,12 @@ import statsmodels.formula.api as smf
 import plotly.graph_objects as go
 
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 
 
 def description(df):
     """
-    Description d'un tableau de données
+    Description d'un tableau de données.
 
     Parameters
     ----------
@@ -103,17 +98,18 @@ def description(df):
 
 def tri_a_plat(df, variable, weight=False, ro=1):
     """
-    Tri à plat pour une variable qualitative pondérée ou non.
+    Tri à plat pour une variable qualitative.
+    Pondération possible.
 
     Parameters
     ----------
     df : DataFrame
     variable : string
-        column name
+        nom de la colonne
     weight : string (optionnal)
-        column name for the weigthing
+        colonne de pondération
     ro : int (optionnal)
-        number of digits to round
+        arrondi
 
     Returns
     -------
@@ -122,7 +118,7 @@ def tri_a_plat(df, variable, weight=False, ro=1):
 
     Notes
     -----
-    Pas de gestion des valeurs manquantes actuellement
+    Pas de gestion des valeurs manquantes.
 
     """
     # Tester le format de l'entrée
@@ -160,15 +156,15 @@ def tri_a_plat(df, variable, weight=False, ro=1):
 
 def verification_recodage(corpus, c1, c2):
     """
-    Comparer une variable recodée qualitatives avec la variable initiale
+    Comparer une variable recodée avec la variable initiale.
 
     Parameters
     ----------
     corpus : DataFrame
     c1 : str
-        column name
+        nom de la colonne 1
     c2 : str
-        column name
+        nom de la colonne 2
 
     Returns
     -------
@@ -176,7 +172,7 @@ def verification_recodage(corpus, c1, c2):
 
     Notes
     -----
-    Pour le moment uniquement de l'affichage
+    Pour le moment uniquement de l'affichage.
 
     """
 
@@ -250,22 +246,23 @@ def verification_recodage(corpus, c1, c2):
 
 def tableau_croise(df, c1, c2, weight=False, p=False, debug=False, ro=1):
     """
-    Tableau croisé pour deux variables qualitatives, avec
-    présentation des pourcentages par ligne.
+    Tableau croisé pour deux variables qualitatives.
+    Pourcentages par ligne.
 
     Parameters
     ----------
     df : DataFrame
+        tableau de données
     c1,c2 : string
-        column names
+        nom des colonnes
     weight : string (optionnel),
-        column name for weights
+        pondération
     p : bool (optionnel)
-        calculate the chi2 test for the table
+        ajout d'un test de chi2
     debug : bool (optionnel)
-        return intermediate tables (raw)
+        retour des tableaux intermédiaires
     ro : int (optionnal)
-        number of digits to round
+        arrondi
 
     Returns
     -------
@@ -274,7 +271,7 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False, ro=1):
 
     Notes
     -----
-    Pas de gestion des valeurs manquantes actuellement, qui ne sont donc pas comptées
+    Pas de gestion des valeurs manquantes actuellement
 
     """
 
@@ -335,17 +332,18 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False, ro=1):
 
 def tableau_croise_controle(df, cont, c, r, weight=False, chi2=False):
     """
-    Tableau croisé avec une variable de contrôle en plus
+    Tableau croisé avec variable de contrôle.
 
     Parameters
     ----------
     df : DataFrame
+        tableau de données
     cont : string
-        column name for control variable
+        colonne de contrôle
     c,r : strings
-        column names for crosstable
+        colonnes à croiser
     weight : string (optionnel),
-        column name for weights
+        poids optionnel
 
     Returns
     -------
@@ -354,7 +352,7 @@ def tableau_croise_controle(df, cont, c, r, weight=False, chi2=False):
 
     Notes
     -----
-    Pas de gestion des valeurs manquantes actuellement, qui ne sont donc pas comptées
+    Pas de gestion des valeurs manquantes actuellement
 
     """
 
@@ -401,28 +399,33 @@ def tableau_croise_multiple(
     df, dep, indeps, weight=False, chi2=True, axis=0, ss_total=True
 ):
     """
-    Tableau croisé multiple une variable dépendantes/plusieurs indépendantes.
+    Tableau croisé multiple.
+    Variable dépendantes vs. plusieurs indépendantes.
 
     Parameters
     ----------
     df : DataFrame
-    dep : string ou dic {nom:label}
-        nom de la variable dépendante en colonne
-    indeps : dict ou list
-        dictionnaire des variables indépendantes et leur label pour le tableau
-    weight : optionnel, colonne de la pondération
-    axis : optionnel, orientation des pourcentages, axis = 1 pour les colonnes
-    ss_total : optionnel, présence de sous totaux
+        Tableau de données
+    dep : str or dic 
+        Variable dépendante en colonne
+        Pour les dictionnaires : {nom:label}
+    indeps : dict or list
+        dictionnaire des variables indépendantes
+    weight : str, optionnal
+        poids optionnel
+    axis : int, optionnal 
+        sens des pourcentages,axis = 1 pour les colonnes
+    ss_total : bool, optionnal
+        présence de sous totaux
 
     Returns
     -------
     DataFrame
-        mis en forme du tableau croisé avec pourcentages par ligne et tri croisé
-        sur total p-value indicative par un chi2
+        mise en forme du tableau croisé.
 
     Notes
     -----
-    Manque une colonne tri à plat
+    Manque une colonne tri à plat.
 
     """
 
@@ -495,16 +498,17 @@ def tableau_croise_multiple(
 
 def significativite(x, digits=4):
     """
-    Mettre en forme la p-value
+    Mettre en forme la p-value.
 
     Parameters
     ----------
-    x : float, p-value
+    x : float
+        p-value
 
     Returns
     -------
     string
-        p-value with fixed number of decimals and stars
+        valeur avec des étoiles.
     """
 
     # Tester le format
@@ -528,27 +532,25 @@ def significativite(x, digits=4):
 
 def tableau_reg_logistique(regression, data, indep_var, sig=True):
     """
-    Mise en forme des résultats de la régression logistique issue de Statsmodel
-    pour une lecture habituelle en SHS.
-
-    Prend en compte aussi les effets d'interaction *
+    Mise en forme des résultats de la régression logistique.
+    Lecture pour les SHS.
 
     Parameters
     ----------
     regression : statsmodel object from GLM
+        modèle de régression
     data : DataFrame
-        Database to extract modalities
-    indep_var : dictionnary
-        column of the variable / Label to use in the table
-    sig : bool (optionnal)
+        tableau des données
+    indep_var : dict or list
+        liste des colonnes de la régression
+    sig : bool, optionnal
+        faire apparaître la significativité
 
     Returns
     -------
-    DataFrame : table for the results
+    DataFrame
+        tableau des résultats.
 
-    Notes
-    -----
-    For the moment, intercept is in the middle of the table ...
 
     Examples
     --------
@@ -634,30 +636,43 @@ def tableau_reg_logistique(regression, data, indep_var, sig=True):
 
 def construction_formule(dep, indep):
     """
-    Construit une formule de modèle à partir d'une liste de variables
+    Construit une formule de modèle linéaire.
+
+    Parameters
+    ----------
+    dep : str
+        variable dépendante
+    indep: list
+        liste des variables indépendantes
+
+    Returns
+    -------
+    str : formule de régression    
+
     """
     return dep + " ~ " + " + ".join([i for i in indep])
 
 
 def regression_logistique(df, dep_var, indep_var, weight=False, table_only=True):
     """
-    Régression logistique binomiale pondérée
+    Régression logistique binomiale pondérée.
 
     Parameters
     ----------
     df : DataFrame
-        Database
-    dep_var : String
-        Name of the binomiale variable
-    indep_var : dictionnary or list
-        column of the variable / Label to use in the table
-    weight : String (optionnal)
-        column of the weighting
-    table_only : if True, return the model
+        tableau des données
+    dep_var : str
+        variable dépendante
+    indep_var : dict or list
+        liste des variables indépendantes
+    weight : str, optionnal
+        pondération
+    table_only : bool
+        seulement le tableau ou le modèle
 
     Returns
     -------
-    DataFrame : table for the results, or the model if table_only=Trye
+    DataFrame : tableau des résultats
 
     Notes
     -----
@@ -732,16 +747,15 @@ def likelihood_ratio(mod, mod_r):
 
 def vers_excel(tables,file):
     """
-    Écriture d'un ensemble de tableaux 
-    dans un fichier excel avec titres
+    Écriture d'un ensemble de tableaux. 
+    Dans un fichier excel avec titres.
     
     Parameters
     ----------
-    tables : list or dictionnary or DataFrames or DF
-        data to write in an Excel file
-        The keys are the titles of the tables
-    file:
-        path and name of the file
+    tables : list or dict or DataFrame
+        Données à écrire dans un fichier
+    file: str
+        chemin et nom du fichier de sortie
 
     Returns
     -------
@@ -780,13 +794,35 @@ def vers_excel(tables,file):
 
 def moyenne_ponderee(colonne,poids):
     """
-    Calculer une moyenne pondérée
+    Calculer une moyenne pondérée.
+
+    Parameters
+    ----------
+    colonne : Serie or list
+        liste des données numériques
+    poids : Serie or list
+        liste des pondéérations
+
+    Returns
+    -------
+    float : moyenne pondérée
     """
     return numpy.average(colonne,weights=poids)
 
 def ecart_type_pondere(colonne, poids):
     """
-    Ecart-type pondéré
+    Ecart-type pondéré.
+
+    Parameters
+    ----------
+    colonne : Serie or list
+        liste des données numériques
+    poids : Serie or list
+        liste des pondéérations
+
+    Returns
+    -------
+    float : écart-type pondéré
     """
     average = numpy.average(colonne, weights=poids)
     variance = numpy.average((colonne-average)**2, weights=poids)

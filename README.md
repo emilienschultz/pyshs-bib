@@ -1,19 +1,18 @@
 # Bibliothèque PySHS
 
-La bibliothèque PySHS a pour but de réunir des outils utiles à un public de praticiens des sciences humaines et sociales francophones pour traiter des données. Elle a pour but de s'enrichir progressivement pour permettre à Python de devenir une alternative (réaliste) à R avec des fonctions facilement utilisables sur les opérations habituelles.
+La bibliothèque PySHS a pour but de faciliter l'analyse de données de questionnaire en sciences humaines et sociales pour les francophones avec Python. 
 
-Actuellement, son principal objectif est de pouvoir rapidement obtenir les traitements statistiques nécessaires à l'analyse d'une enquête, en complément avec Pandas.
+Elle a pour but de s'enrichir progressivement pour permettre à Python de devenir une alternative (réaliste) à R avec des fonctions facilement utilisables sur les opérations habituelles.
 
-La version actuelle est la **0.2.0**
+La version actuelle est la **0.2.3**
 
 ## Contenu
 
 ### Traiter des données issues d'enquêtes par questionnaires (avec pondération)
 
 - Description d'un tableau de données
-- Tri à plat et tableau croisé avec pondération
-- Tableau croisant une variable dépendante avec une série de variables indépendantes, avec pondération
-- Wrapper pour réaliser une régression logistique binomiale pondérée
+- Tri à plat et tableau(x) croisé(s) avec pondération
+- Régression logistique facilitée
 
 ## Installation
 
