@@ -27,6 +27,7 @@ Temporairement :
 
 """
 import warnings
+import math
 
 import numpy as np
 import pandas as pd
@@ -41,7 +42,7 @@ import statsmodels.formula.api as smf
 import plotly.graph_objects as go
 
 
-__version__ = "0.2.3"
+__version__ = "0.2.4"
 
 
 def description(df):
@@ -807,7 +808,7 @@ def moyenne_ponderee(colonne,poids):
     -------
     float : moyenne pondérée
     """
-    return numpy.average(colonne,weights=poids)
+    return np.average(colonne,weights=poids)
 
 def ecart_type_pondere(colonne, poids):
     """
@@ -824,8 +825,8 @@ def ecart_type_pondere(colonne, poids):
     -------
     float : écart-type pondéré
     """
-    average = numpy.average(colonne, weights=poids)
-    variance = numpy.average((colonne-average)**2, weights=poids)
+    average = np.average(colonne, weights=poids)
+    variance = np.average((colonne-average)**2, weights=poids)
     return math.sqrt(variance)
 
 # ----------------------------------------------------------------------
