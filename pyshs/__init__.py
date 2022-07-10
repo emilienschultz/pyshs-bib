@@ -46,4 +46,4 @@ from ._core import (
     cramers_corrected_stat,
 )
 
-__version__ = "0.2.6"
+__version__ = "0.2.7"
