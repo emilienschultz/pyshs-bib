@@ -1,12 +1,11 @@
 """
 PySHS - Faciliter le traitement de données en SHS
 Langue : Français
-Dernière modification : 22/02/2022
+Dernière modification : 09/07/2022
 Auteur : Émilien Schultz
 Contributeurs :
 - Matthias Bussonnier
 - Léo Mignot
-
 
 Pour le moment le module PySHS comprend :
 
@@ -18,6 +17,8 @@ Pour le moment le module PySHS comprend :
 - une fonction pour un tableau croisé à trois variables pour en contrôler une lors de l'analyse
 - une fonction de mise en forme des résultats de la régression logistique de Statsmodel pour avoir un tableau avec les références
 - une fonction pour produire la régression logistique binomiale
+- une fonction moyenne & écart-type pondéré
+- une fonction d'écriture de tableaux excels
 
 Temporairement :
 - une fonction de mise en forme différente de la régression logistique, incluant les effets d'interaction (beta)
@@ -45,7 +46,7 @@ import statsmodels.formula.api as smf
 import plotly.graph_objects as go
 
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 
 def description(df):
@@ -728,6 +729,68 @@ def likelihood_ratio(mod, mod_r):
     p = chi2.sf(LR, diff_df)  # test de la significativité
     return p
 
+
+def vers_excel(tables,file):
+    """
+    Écriture d'un ensemble de tableaux 
+    dans un fichier excel avec titres
+    
+    Parameters
+    ----------
+    tables : list or dictionnary or DataFrames or DF
+        data to write in an Excel file
+        The keys are the titles of the tables
+    file:
+        path and name of the file
+
+    Returns
+    -------
+    None
+    """
+    
+    # Transformation de l'entrée en dictionnaire
+    if type(tables) == pd.DataFrame:
+        tables = {"":tables}
+    if type(tables) == list:
+        tables = {"Tableau %d"%(i+1):j for i,j in enumerate(tables)} 
+    if type(tables)!=dict:
+        print("Erreur dans le format des données rentrées")
+        return None
+    
+    # Ouverture d'un fichier excel
+    if (not ".xlsx" in file) or (not ".xls" in file):
+        print("Le fichier a créer n'a pas la bonne extension")
+        return None
+    
+    writer = pd.ExcelWriter(file)
+    workbook=writer.book
+    worksheet=workbook.add_worksheet('Résultats')
+    writer.sheets['Résultats'] = worksheet
+    curseur = 0 #ligne d'écriture
+    # Boucle sur les tableaux
+    for title in tables :
+        worksheet.write_string(l, 0, title) # écriture du titre
+        tables[title].to_excel(writer, 
+                               sheet_name='Résultats', 
+                               startrow=curseur+2)
+        curseur += 2 + tables[title].shape[0] + 3
+    writer.save() 
+    
+    return None
+
+def moyenne_ponderee(colonne,poids):
+    """
+    Calculer une moyenne pondérée
+    """
+    return numpy.average(colonne,weights=poids)
+
+def ecart_type_pondere(colonne, poids):
+    """
+    Ecart-type pondéré
+    """
+    average = numpy.average(colonne, weights=poids)
+    variance = numpy.average((colonne-average)**2, weights=poids)
+    return math.sqrt(variance)
 
 # ----------------------------------------------------------------------
 # Classes et fonctions temporaires non finalisées
