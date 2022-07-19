@@ -20,6 +20,7 @@ Pour le moment le module PySHS comprend :
 - une fonction pour produire la régression logistique binomiale
 - une fonction moyenne & écart-type pondéré
 - une fonction d'écriture de tableaux excels
+- le portage de la fonction R de FactoMineR *catdes* (uniquement quali)
 
 Temporairement :
 - une fonction de mise en forme différente de la régression logistique, incluant les effets d'interaction (beta)
@@ -42,8 +43,9 @@ from ._core import (
     vers_excel,
     moyenne_ponderee,
     ecart_type_pondere,
+    catdes,
     tableau_reg_logistique_distribution,
     cramers_corrected_stat,
 )
 
-__version__ = "0.2.7"
+__version__ = "0.2.8"

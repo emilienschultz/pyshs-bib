@@ -7,6 +7,8 @@ from pandas.api.types import is_numeric_dtype
 
 from scipy.stats import chi2_contingency
 from scipy.stats.distributions import chi2
+from scipy.stats import hypergeom
+from scipy.stats import norm
 
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
@@ -800,6 +802,145 @@ def ecart_type_pondere(colonne, poids):
     variance = np.average((colonne - average) ** 2, weights=poids)
     return math.sqrt(variance)
 
+
+def catdes(df, vardep, varindep=False, proba = 0.05, weight=False, mod=False):
+    """
+    Calcule la relation entre une et plusieurs variables catégorielles.
+    Implémentation de la fonction catdes de FactoMineR.
+    Attention : encore en version BETA
+    
+    Parameters
+    ----------
+    df : DataFrame
+    vardep : string
+        variable catégorielle dépendante
+    varindep : list (optionnal)
+        liste des variables indépendantes
+    proba : float (optionnal)
+        niveau de significativité appliqué
+    weight : string (optionnal)
+        colonne de pondération
+    mod : bool (optionnal)
+        calculer la relation entre modalités
+
+    Returns
+    -------
+    DataFrame
+        Tableau des associations chi2
+    DataFrame (optionnal)
+        Tableau des associations entre modalités.
+        Avec le calcul d'une valeur test spécifique.
+
+    Notes
+    -----
+    Pas encore d'implémentation pour les variables quantitatives.
+    Participation de Ahmadou Dicko pour passage R vers Python.
+    Code initial en R dans FactoMineR.
+    Passage en Python initié avec Inno3.
+    Résultats testés comparativement avec R.
+    
+    """
+   
+    df = df.copy()
+    
+    # Pondération à 1 si pas de pondération
+    if not weight :
+        df["weight"] = [1]*len(df)
+        weight = "weight"
+    
+    # Construction de la liste de variables catégorielles
+    if not varindep:
+        # Cas où les variables ne sont pas proposées
+        cols = [c for c in df.columns if not is_numeric_dtype(df[c]) and c != vardep]
+    else:
+        # Cas où les variables sont proposées
+        cols = []
+        for i in varindep:
+            if not is_numeric_dtype(df[i]):
+                cols.append(i)
+            else:
+                print(f"La colonne {i} est numérique")
+    
+    # Calcul de l'association par variables
+    resultats = []
+    cols_corr = []
+    for v in cols: # pour chaque variable
+        # Calcul du tableau croisé
+        t,a,p = tableau_croise(df,vardep,v,weight=weight,debug=True)
+        a = a.drop(index="All",columns="All")
+        
+        # Calcul des statistiques sur le tableau d'effectif
+        k,p,f,t = chi2_contingency(a,correction=False)
+        
+        # Uniquement les associations significatives
+        if p < proba:
+            resultats.append([v,p,f])
+            cols_corr.append(v)
+    
+    # Mettre en forme le tableau
+    resultats = pd.DataFrame(resultats,
+                             columns = [vardep,"p","df"]
+                            ).set_index(vardep).sort_values("p")
+    
+    # Retourner le résultats si les modalités ne sont pas analysées
+    if not mod:   
+        return resultats
+    
+    # Calcul de l'association par modalités pour les variables significatives
+    
+    # Création des colonnes 0/1 par modalités
+    tab_dep = pd.get_dummies(df[[vardep]])
+    tab_ind = pd.get_dummies(df[cols_corr])
+    tab_all = pd.get_dummies(df[[vardep]+cols_corr+[weight]])
+    n = len(df)
+    
+    # Faire une boucle sur modalités de vardep et varind
+    resultats_modalites = {}
+    for categorie in tab_dep.columns:
+        res_cat = []
+        for modalite in tab_ind.columns:
+            # Calcul d'un test hypergéométrique
+            # Arrondi car pondération
+            n_kj = round((tab_all[tab_all[categorie]==1][modalite] * tab_all[tab_all[categorie]==1][weight]).sum())
+            n_j = round((tab_all[modalite]*tab_all[weight]).sum())
+            n_k = round((tab_all[categorie]*tab_all[weight]).sum())
+            # Test dans catdes de FactomineR
+            # 2 * P(N >= n_kj-1) + P(n_kj)
+            prob_inf2 = hypergeom.cdf(n_kj-1,n,n_j,n_k)*2 + hypergeom.pmf(n_kj,n,n_j,n_k)
+            # 2 * P(N < n_kj) + P(n_kj)
+            prob_sup2 = (1 - hypergeom.cdf(n_kj,n,n_j,n_k))*2 + hypergeom.pmf(n_kj,n,n_j,n_k)
+            # Prendre la valeur minimale
+            p_min2 = min(prob_inf2,prob_sup2)
+            # Calcul de la valeur test à partir d'une loi normale unitaire
+            V = (1-2*int(n_kj/n_j>n_k/n))*norm.ppf(p_min2/2)
+            # Calcul du chi2 sur le tableau croisé 2x2
+            t,a,p = tableau_croise(tab_all,categorie,modalite,weight,debug=True)
+            a = a.drop(index="All",columns="All")
+            k,p_chi2,f,t = chi2_contingency(a,correction=False)
+            # Seuil de test
+            if p_min2/2 < proba:
+                res_cat.append([modalite,
+                                round(100*n_kj/n_j,2),
+                                round(100*n_kj/n_k,2),
+                                round(100*n_j/n,2),
+                                round(V,2),
+                                p_min2/2, 
+                                p_chi2])
+                
+        # Mise sous forme d'un tableau Pandas
+        res_cat = pd.DataFrame(res_cat,
+                     columns=["var dep",
+                              "Cla/Mod (n_kj/n_j)",
+                              "Mod/Cla (n_kj/n_k)",
+                              "Proportion globale (n_j/n)",
+                              "Valeur test","p hyper",
+                              "p chi2"])
+        res_cat = res_cat.sort_values("Valeur test",
+                    ascending=False,
+                    key=abs).set_index("var dep")
+        resultats_modalites[categorie]= res_cat
+
+    return resultats,pd.concat(resultats_modalites)
 
 # ----------------------------------------------------------------------
 # Classes et fonctions temporaires non finalisées
