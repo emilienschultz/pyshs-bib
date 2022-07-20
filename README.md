@@ -13,6 +13,8 @@ La version actuelle est la **0.2.7**
 - Description d'un tableau de données
 - Tri à plat et tableau(x) croisé(s) avec pondération
 - Régression logistique facilitée
+- Sauvegarde Excel de tableaux
+- Importation de la fonction `catdes` de FactoMineR (association variable catégorielle/autres variables)
 
 ## Installation
 
@@ -47,4 +49,4 @@ $ pip install pyshs --upgrade
 
 ### Autres utilisations
 
-Voir le Notebook **Exemple PySHS.ipynb**
+Voir le Notebook **Exemple PySHS.ipynb** qui montre l'utilisation des fonctions.

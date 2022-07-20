@@ -43,9 +43,7 @@ from ._core import (
     vers_excel,
     moyenne_ponderee,
     ecart_type_pondere,
-    catdes,
-    tableau_reg_logistique_distribution,
-    cramers_corrected_stat,
+    catdes
 )
 
-__version__ = "0.2.8"
+__version__ = "0.3.0"

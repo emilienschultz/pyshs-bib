@@ -15,7 +15,8 @@ import statsmodels.formula.api as smf
 
 import plotly.graph_objects as go
 
-
+import statsmodels.api as sm
+from statsmodels.formula.api import ols
 
 
 def description(df):
@@ -803,9 +804,31 @@ def ecart_type_pondere(colonne, poids):
     return math.sqrt(variance)
 
 
+import warnings
+import math
+
+import numpy as np
+import pandas as pd
+from pandas.api.types import is_numeric_dtype
+
+from scipy.stats import chi2_contingency
+from scipy.stats.distributions import chi2
+from scipy.stats import hypergeom
+from scipy.stats import norm
+
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
+
+import plotly.graph_objects as go
+
+
+import statsmodels.api as sm
+from statsmodels.formula.api import ols
+
+
 def catdes(df, vardep, varindep=False, proba = 0.05, weight=False, mod=False):
     """
-    Calcule la relation entre une et plusieurs variables catégorielles.
+    Calcule la relation entre une variable catégorielle et plusieurs variables.
     Implémentation de la fonction catdes de FactoMineR.
     Attention : encore en version BETA
     
@@ -826,76 +849,128 @@ def catdes(df, vardep, varindep=False, proba = 0.05, weight=False, mod=False):
     Returns
     -------
     DataFrame
-        Tableau des associations chi2
+        Tableau des associations entre variables quanti
+    DataFrame
+        Tableau des associations entre variables quali
     DataFrame (optionnal)
-        Tableau des associations entre modalités.
-        Avec le calcul d'une valeur test spécifique.
+        Tableau des associations entre modalités qualitatives.
+    DataFrame (optionnal)
+        Tableau des associations entre modalités quantitatives.
 
     Notes
     -----
-    Pas encore d'implémentation pour les variables quantitatives.
     Participation de Ahmadou Dicko pour passage R vers Python.
     Code initial en R dans FactoMineR.
     Passage en Python initié avec Inno3.
-    Résultats testés comparativement avec R.
+    Résultats testés comparativement avec R qui correspondent.
+    Il manque encore les tests.
     
     """
    
+    # Copie du tableau
     df = df.copy()
+    
+    # Variable dépendante catégorielle
+    if is_numeric_dtype(df[vardep]):
+        print("Attention, la variable dépendante est numérique")
+        return None
     
     # Pondération à 1 si pas de pondération
     if not weight :
         df["weight"] = [1]*len(df)
         weight = "weight"
-    
-    # Construction de la liste de variables catégorielles
+
+    # Construction de la liste de variables
+    cols_num = []
+    cols_cat = []
     if not varindep:
         # Cas où les variables ne sont pas proposées
-        cols = [c for c in df.columns if not is_numeric_dtype(df[c]) and c != vardep]
+        cols_cat = [c for c in df.columns if not is_numeric_dtype(df[c]) and c != vardep]
+        cols_num = [c for c in df.columns if is_numeric_dtype(df[c])]
     else:
         # Cas où les variables sont proposées
-        cols = []
         for i in varindep:
-            if not is_numeric_dtype(df[i]):
-                cols.append(i)
+            if is_numeric_dtype(df[i]):
+                cols_num.append(i)
             else:
-                print(f"La colonne {i} est numérique")
+                cols_cat.append(i)
     
     # Calcul de l'association par variables
-    resultats = []
-    cols_corr = []
-    for v in cols: # pour chaque variable
+    
+    # Cas des variables catégorielles
+    
+    tableau_cat_var = []
+    var_cat_corr = []
+
+    # Pour chaque variable
+    for v in cols_cat:
+
         # Calcul du tableau croisé
         t,a,p = tableau_croise(df,vardep,v,weight=weight,debug=True)
         a = a.drop(index="All",columns="All")
         
-        # Calcul des statistiques sur le tableau d'effectif
+        # Calcul du chi2
         k,p,f,t = chi2_contingency(a,correction=False)
         
-        # Uniquement les associations significatives
+        # Ajout aux résultats si significatif
         if p < proba:
-            resultats.append([v,p,f])
-            cols_corr.append(v)
+            tableau_cat_var.append([v,p,f])
+            var_cat_corr.append(v)
     
     # Mettre en forme le tableau
-    resultats = pd.DataFrame(resultats,
+    tableau_cat_var = pd.DataFrame(tableau_cat_var,
                              columns = [vardep,"p","df"]
                             ).set_index(vardep).sort_values("p")
     
-    # Retourner le résultats si les modalités ne sont pas analysées
-    if not mod:   
-        return resultats
+
+    # Cas des variables numériques
     
-    # Calcul de l'association par modalités pour les variables significatives
+    tableau_num_var = []
+    var_num_corr = []
+
+    # Pour chaque variable numérique
+    for v in cols_num:
+        
+        # Gestion des espaces dans les noms pour la formule
+        v_m = v.replace(" ","_").replace(":","")
+        vardep_m = vardep.replace(" ","_").replace(":","")
+        df[v_m] = df[v]
+        df[vardep_m] = df[vardep]
+        
+        # Calcul d'un ANOVA
+        model = ols(f"{v_m} ~ C({vardep_m})", data=df,
+                                weights=weight).fit()       
+        aov_table = sm.stats.anova_lm(model, typ=2)
+        
+        # Paramètre de l'association
+        eta2 = aov_table.iloc[0,0]/aov_table.iloc[:,0].sum()
+        p = aov_table.iloc[0,3]
+
+        # Ajout aux résultats si significatif
+        if p <= proba:
+            tableau_num_var.append([v,eta2,p])
+            var_num_corr.append(v)
+        
+    # Mettre en forme le tableau
+    tableau_num_var = pd.DataFrame(tableau_num_var,
+                        columns = [vardep,"Eta 2","p-value"]).set_index(vardep)
+
+    # Fin de la fonction si mod = False
+    if not mod:   
+        return tableau_cat_var,tableau_num_var
+    
+    # Si mod = True, associations avec les modalités 
+    
+    # Cas des variables catégorielles
     
     # Création des colonnes 0/1 par modalités
     tab_dep = pd.get_dummies(df[[vardep]])
-    tab_ind = pd.get_dummies(df[cols_corr])
-    tab_all = pd.get_dummies(df[[vardep]+cols_corr+[weight]])
+    tab_ind = pd.get_dummies(df[var_cat_corr])
+    tab_all = pd.get_dummies(df[list(set([vardep]+var_cat_corr+[weight]))]) #assurer l'unicité des colonnes
     n = len(df)
     
-    # Faire une boucle sur modalités de vardep et varind
-    resultats_modalites = {}
+    # Boucle sur les variables
+    tableau_cat_mod = {}
     for categorie in tab_dep.columns:
         res_cat = []
         for modalite in tab_ind.columns:
@@ -917,7 +992,7 @@ def catdes(df, vardep, varindep=False, proba = 0.05, weight=False, mod=False):
             t,a,p = tableau_croise(tab_all,categorie,modalite,weight,debug=True)
             a = a.drop(index="All",columns="All")
             k,p_chi2,f,t = chi2_contingency(a,correction=False)
-            # Seuil de test
+            #  Ajout aux résultats si significatif
             if p_min2/2 < proba:
                 res_cat.append([modalite,
                                 round(100*n_kj/n_j,2),
@@ -927,20 +1002,60 @@ def catdes(df, vardep, varindep=False, proba = 0.05, weight=False, mod=False):
                                 p_min2/2, 
                                 p_chi2])
                 
-        # Mise sous forme d'un tableau Pandas
+        # Mise en forme du tableau
         res_cat = pd.DataFrame(res_cat,
-                     columns=["var dep",
+                     columns=["var",
                               "Cla/Mod (n_kj/n_j)",
                               "Mod/Cla (n_kj/n_k)",
                               "Proportion globale (n_j/n)",
                               "Valeur test","p hyper",
-                              "p chi2"])
-        res_cat = res_cat.sort_values("Valeur test",
-                    ascending=False,
-                    key=abs).set_index("var dep")
-        resultats_modalites[categorie]= res_cat
+                              "p chi2"]).sort_values("Valeur test",
+                                    ascending=False,
+                                    key=abs).set_index("var")
+        tableau_cat_mod[categorie]= res_cat
+        
+    # Mise en forme final du tableau
+    tableau_cat_mod = pd.concat(tableau_cat_mod)
+        
 
-    return resultats,pd.concat(resultats_modalites)
+    # Cas des variables numériques
+
+    var_dep_mod = df[vardep].unique()
+    tableau_num_mod = {i:[] for i in var_dep_mod}
+
+    # Pour chaque variable
+    for v in var_num_corr:
+
+        # Calcul de paramètres
+        moy_mod = df.groupby("sexe").apply(lambda x : moyenne_ponderee(x[v],x[weight]))
+        n_mod = df.groupby("sexe")[v].count()
+        n = sum(n_mod)
+        sd_mod = df.groupby("sexe").apply(lambda x : ecart_type_pondere(x[v],x[weight]))
+        moy = moyenne_ponderee(df[v],df[weight])
+        sd =  ecart_type_pondere(df[v],df[weight])
+
+        # Pour chaque modalités de la variable dépendante
+        for m in var_dep_mod:
+            # Calcul d'un test
+            v_test = (moy_mod.loc[m]-moy)/sd*math.sqrt(n_mod.loc[m])/math.sqrt((n-n_mod.loc[m])/(n-1))
+            p_value =  (1-norm.cdf(abs(v_test)))*2
+
+            # Ajout à la sortie si significatif au seuil
+            if p_value <= proba:
+                tableau_num_mod[m].append([v, v_test, p_value, moy_mod.loc[m],
+                                           moy,sd_mod.loc[m],sd])
+                
+    # Mise en forme des tableaux
+    # Ce n'est pas très joli ...
+    tableau_num_mod = pd.concat({i:pd.DataFrame(tableau_num_mod[i],
+                columns = ["var","Valeur test","p-value","Moy mod",
+                       "Moy glob","Std mod","Std glob"]
+                         ).set_index("var").sort_values("Valeur test",
+                         ascending=False,key=abs) for i in tableau_num_mod
+          })
+
+    # Retourner les tableaux
+    return tableau_cat_var,tableau_num_var,tableau_cat_mod,tableau_num_mod
 
 # ----------------------------------------------------------------------
 # Classes et fonctions temporaires non finalisées
