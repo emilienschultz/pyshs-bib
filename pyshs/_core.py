@@ -824,9 +824,10 @@ import plotly.graph_objects as go
 
 import statsmodels.api as sm
 from statsmodels.formula.api import ols
+from typing import Optional, List
 
-
-def catdes(df, vardep, varindep=False, proba = 0.05, weight=False, mod=False):
+def catdes(df: pd.DataFrame, vardep: str, varindep: List[str] = None,
+           proba: float = 0.05, weight: Optional[str] = False, mod: bool = False):
     """
     Calcule la relation entre une variable catégorielle et plusieurs variables.
     Implémentation de la fonction catdes de FactoMineR.
@@ -938,8 +939,7 @@ def catdes(df, vardep, varindep=False, proba = 0.05, weight=False, mod=False):
         df[vardep_m] = df[vardep]
         
         # Calcul d'un ANOVA
-        model = ols(f"{v_m} ~ C({vardep_m})", data=df,
-                                weights=weight).fit()       
+        model = ols(f"{v_m} ~ C({vardep_m})", data=df).fit()
         aov_table = sm.stats.anova_lm(model, typ=2)
         
         # Paramètre de l'association
@@ -1027,10 +1027,10 @@ def catdes(df, vardep, varindep=False, proba = 0.05, weight=False, mod=False):
     for v in var_num_corr:
 
         # Calcul de paramètres
-        moy_mod = df.groupby("sexe").apply(lambda x : moyenne_ponderee(x[v],x[weight]))
-        n_mod = df.groupby("sexe")[v].count()
+        moy_mod = df.groupby(vardep).apply(lambda x : moyenne_ponderee(x[v],x[weight]))
+        n_mod = df.groupby(vardep)[v].count()
         n = sum(n_mod)
-        sd_mod = df.groupby("sexe").apply(lambda x : ecart_type_pondere(x[v],x[weight]))
+        sd_mod = df.groupby(vardep).apply(lambda x : ecart_type_pondere(x[v],x[weight]))
         moy = moyenne_ponderee(df[v],df[weight])
         sd =  ecart_type_pondere(df[v],df[weight])
 
