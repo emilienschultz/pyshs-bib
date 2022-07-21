@@ -875,19 +875,14 @@ def catdes(df: pd.DataFrame, vardep: str, varindep: List[str] = None,
     if is_numeric_dtype(df[vardep]):
         print("Attention, la variable dépendante est numérique")
         return None
-    
-    # Pondération à 1 si pas de pondération
-    if not weight :
-        df["weight"] = [1]*len(df)
-        weight = "weight"
 
     # Construction de la liste de variables
     cols_num = []
     cols_cat = []
     if not varindep:
         # Cas où les variables ne sont pas proposées
-        cols_cat = [c for c in df.columns if not is_numeric_dtype(df[c]) and c != vardep]
-        cols_num = [c for c in df.columns if is_numeric_dtype(df[c])]
+        cols_cat = [c for c in df.columns if not is_numeric_dtype(df[c]) and c != vardep] # sans la variable dépendante
+        cols_num = [c for c in df.columns if is_numeric_dtype(df[c]) and c != weight] # sans la pondération
     else:
         # Cas où les variables sont proposées
         for i in varindep:
@@ -895,6 +890,11 @@ def catdes(df: pd.DataFrame, vardep: str, varindep: List[str] = None,
                 cols_num.append(i)
             else:
                 cols_cat.append(i)
+
+    # Pondération à 1 si pas de pondération
+    if not weight :
+        df["weight"] = [1]*len(df)
+        weight = "weight"
     
     # Calcul de l'association par variables
     
