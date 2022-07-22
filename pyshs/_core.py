@@ -826,6 +826,13 @@ import statsmodels.api as sm
 from statsmodels.formula.api import ols
 from typing import Optional, List
 
+
+def _escape_quotes(variable: str) -> str:
+    """ Escapes the only bad character for Q() in Patsy parsing
+    """
+    return variable.replace('"', '\\"')
+
+
 def catdes(df: pd.DataFrame, vardep: str, varindep: List[str] = None,
            proba: float = 0.05, weight: Optional[str] = False, mod: bool = False):
     """
@@ -928,18 +935,13 @@ def catdes(df: pd.DataFrame, vardep: str, varindep: List[str] = None,
     
     tableau_num_var = []
     var_num_corr = []
-
+    
     # Pour chaque variable numérique
-    for v in cols_num:
-        
-        # Gestion des espaces dans les noms pour la formule
-        v_m = v.replace(" ","_").replace(":","")
-        vardep_m = vardep.replace(" ","_").replace(":","")
-        df[v_m] = df[v]
-        df[vardep_m] = df[vardep]
-        
+    for v in cols_num:        
         # Calcul d'un ANOVA
-        model = ols(f"{v_m} ~ C({vardep_m})", data=df).fit()
+        # Utilisation de Q() pour échapper les variables
+        #  See https://patsy.readthedocs.io/en/latest/builtins-reference.html#patsy.builtins.Q
+        model = ols(f"Q(\"{_escape_quotes(v)}\") ~ C(Q(\"{_escape_quotes(vardep)}\"))", data=df).fit()
         aov_table = sm.stats.anova_lm(model, typ=2)
         
         # Paramètre de l'association
