@@ -1,5 +1,7 @@
 import warnings
 import math
+from typing import Optional, List
+
 
 import numpy as np
 import pandas as pd
@@ -804,31 +806,21 @@ def ecart_type_pondere(colonne, poids):
     return math.sqrt(variance)
 
 
-import warnings
-import math
-
-import numpy as np
-import pandas as pd
-from pandas.api.types import is_numeric_dtype
-
-from scipy.stats import chi2_contingency
-from scipy.stats.distributions import chi2
-from scipy.stats import hypergeom
-from scipy.stats import norm
-
-import statsmodels.api as sm
-import statsmodels.formula.api as smf
-
-import plotly.graph_objects as go
-
-
-import statsmodels.api as sm
-from statsmodels.formula.api import ols
-from typing import Optional, List
 
 
 def _escape_quotes(variable: str) -> str:
-    """ Escapes the only bad character for Q() in Patsy parsing
+    """ 
+    Complète la fonction Q() de patsy pour échapper les caractères problématiques
+    Parameters
+    ----------
+    variable : str
+        nom de variable
+        
+    Returns
+    -------
+    str
+        nom de variable modifiée
+
     """
     return variable.replace('"', '\\"')
 
@@ -938,7 +930,7 @@ def catdes(df: pd.DataFrame, vardep: str, varindep: List[str] = None,
     
     # Pour chaque variable numérique
     for v in cols_num:        
-        # Calcul d'un ANOVA
+        # Calcul d'une ANOVA
         # Utilisation de Q() pour échapper les variables
         #  See https://patsy.readthedocs.io/en/latest/builtins-reference.html#patsy.builtins.Q
         model = ols(f"Q(\"{_escape_quotes(v)}\") ~ C(Q(\"{_escape_quotes(vardep)}\"))", data=df).fit()
