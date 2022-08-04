@@ -725,14 +725,14 @@ def likelihood_ratio(mod, mod_r):
 def vers_excel(tables, file):
     """
     Écriture d'un ensemble de tableaux.
-    Dans un fichier excel avec titres.
+    Dans un fichier libre office (xlsc) avec titres.
 
     Parameters
     ----------
     tables : list or dict or DataFrame
         Données à écrire dans un fichier
     file: str
-        chemin et nom du fichier de sortie
+        chemin et nom du fichier de sortie (.xlsx)
 
     Returns
     -------
@@ -753,16 +753,16 @@ def vers_excel(tables, file):
         print("Le fichier a créer n'a pas la bonne extension")
         return None
 
-    writer = pd.ExcelWriter(file)
-    workbook = writer.book
-    worksheet = workbook.add_worksheet("Résultats")
+    writer = pd.ExcelWriter(file, engine='openpyxl', mode='w')
+    writer.book.create_sheet("Résultats")
+    worksheet = writer.book.worksheets[0]
     writer.sheets["Résultats"] = worksheet
     curseur = 0  # ligne d'écriture
     # Boucle sur les tableaux
     for title in tables:
-        worksheet.write_string(curseur, 0, title)  # écriture du titre
+        worksheet.cell(curseur + 1,1,title)
         tables[title].to_excel(writer, sheet_name="Résultats", startrow=curseur + 2)
-        curseur += 2 + tables[title].shape[0] + 3
+        curseur += 2 + tables[title].shape[0] + 4
     writer.save()
 
     return None
@@ -815,7 +815,7 @@ def _escape_quotes(variable: str) -> str:
     ----------
     variable : str
         nom de variable
-        
+
     Returns
     -------
     str
@@ -852,9 +852,9 @@ def catdes(df: pd.DataFrame, vardep: str, varindep: List[str] = None,
         Tableau des associations entre variables quanti
     DataFrame
         Tableau des associations entre variables quali
-    DataFrame (optionnal)
+    DataFrame (if mod = True)
         Tableau des associations entre modalités qualitatives.
-    DataFrame (optionnal)
+    DataFrame (if mod = True)
         Tableau des associations entre modalités quantitatives.
 
     Notes
