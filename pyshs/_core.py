@@ -1,3 +1,5 @@
+# modification du 16/05/2023
+
 import warnings
 import math
 from typing import Optional, List
@@ -292,16 +294,21 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False, ro=1):
     t["All"] = t["All"].apply(lambda x: "{} (100%)".format(x))
 
     # Traduire All par Total
-    t.columns = list(t.columns)[:-1] + ["Total"]
-    t.index = list(t.index)[:-1] + ["Total"]
+    t = t.rename(index={"All":"Total"},columns={"All":"Total"})
+    t_absolu = t_absolu.rename(index={"All":"Total"},columns={"All":"Total"})
+    t_pourcentage = t_pourcentage.rename(index={"All":"Total"},columns={"All":"Total"})
+    #t.columns = list(t.columns)[:-1] + ["Total"]
+    #t.index = list(t.index)[:-1] + ["Total"]
 
     # Retour des tableaux non mis en forme
     if debug:
-        return t, t_absolu, t_pourcentage
+        val_p = chi2_contingency(t_absolu.drop("Total").drop("Total", axis=1))[1]
+        return t, t_absolu, t_pourcentage, val_p
 
     # Retour du tableau avec la p-value
     if p:
-        return t, chi2_contingency(t_absolu.drop("All").drop("All", axis=1))[1]
+        val_p = chi2_contingency(t_absolu.drop("Total").drop("Total", axis=1))[1]
+        return t, val_p
 
     # Retour du tableau mis en forme
     return t
@@ -373,11 +380,11 @@ def tableau_croise_controle(df, cont, c, r, weight=False, chi2=False):
 
 
 def tableau_croise_multiple(
-    df, dep, indeps, weight=False, chi2=True, axis=0, ss_total=True
+    df, dep, indeps, weight=False, chi2=True, axis=0, ss_total=True, contenu = "complet"
 ):
     """
-    Tableau croisé multiple.
-    Variable dépendantes vs. plusieurs indépendantes.
+    Tableau croisé multiples variables.
+    Variable dépendantes vs. plusieurs variables indépendantes.
 
     Parameters
     ----------
@@ -388,12 +395,15 @@ def tableau_croise_multiple(
         Pour les dictionnaires : {nom:label}
     indeps : dict or list
         dictionnaire des variables indépendantes
+        Pour les dictionnaires : {nom:label}
     weight : str, optionnal
         poids optionnel
     axis : int, optionnal
         sens des pourcentages,axis = 1 pour les colonnes
     ss_total : bool, optionnal
         présence de sous totaux
+    contenu : str, optionnal
+        données complètes, brutes ou pourcentages
 
     Returns
     -------
@@ -440,10 +450,24 @@ def tableau_croise_multiple(
     for i in indeps:
         # Tableau croisé pondéré (deux orientations possibles)
         if axis == 0:
-            t, p = tableau_croise(df, i, dep, weight, p=True)
+            t_comp,t_ab,t_per,p = tableau_croise(df,i,dep,weight,debug=True)
+            
         else:
-            t, p = tableau_croise(df, dep, i, weight, p=True)
-            t = t.T
+            t_comp,t_ab,t_per,p = tableau_croise(df,dep,weight,i,debug=True)
+            t_comp = t_comp.T
+            t_ab = t_ab.T
+            t_per = t_per.T
+            
+        # Sélection du contenu du tableau
+        if contenu == "complet":
+            t = t_comp
+        elif contenu  == "absolu":
+            t = t_ab
+        elif contenu == "pourcentage":
+            t = t_per
+        else:
+            print("Erreur dans le format du tableau")
+            return None
 
         # Enlever les sous-totaux si besoin
         if not ss_total:
@@ -462,7 +486,6 @@ def tableau_croise_multiple(
     t_all = pd.concat(t_all)
     t_all.columns.name = ""
     t_all.index.names = ["Variable", "Modalités"]
-    t_all.columns.values[-2] = "Total"
 
     # Alerter sur les totaux différents
     if len(set(check_total)) != 1:
@@ -471,7 +494,6 @@ def tableau_croise_multiple(
         )
 
     return t_all
-
 
 def significativite(x, digits=4):
     """
