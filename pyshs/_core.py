@@ -75,7 +75,7 @@ def description(df):
     return tableau.fillna(" ")
 
 
-def tri_a_plat(df, variable, weight=False, ro=1):
+def tri_a_plat(df, variable, poids=False, ro=1):
     """
     Tri à plat pour une variable qualitative.
     Pondération possible.
@@ -85,7 +85,7 @@ def tri_a_plat(df, variable, weight=False, ro=1):
     df : DataFrame
     variable : string
         nom de la colonne
-    weight : string (optionnal)
+    poids : string (optionnal)
         colonne de pondération
     ro : int (optionnal)
         arrondi
@@ -109,7 +109,7 @@ def tri_a_plat(df, variable, weight=False, ro=1):
         return None
 
     # Cas de données non pondérées
-    if not weight:
+    if not poids:
         effectif = df[variable].value_counts()
         pourcentage = round(100 * df[variable].value_counts(normalize=True), ro)
         tableau = pd.DataFrame([effectif, pourcentage]).T
@@ -117,7 +117,7 @@ def tri_a_plat(df, variable, weight=False, ro=1):
 
     # Cas des données pondérées
     else:
-        effectif = round(df.groupby(variable)[weight].sum(), ro)
+        effectif = round(df.groupby(variable)[poids].sum(), ro)
         total = effectif.sum()
         pourcentage = round(100 * effectif / total, ro)
         tableau = pd.DataFrame([effectif, pourcentage]).T
@@ -223,7 +223,7 @@ def verification_recodage(corpus, c1, c2):
     return None
 
 
-def tableau_croise(df, c1, c2, weight=False, p=False, debug=False, ro=1):
+def tableau_croise(df, c1, c2, poids=False, p=False, verb=False, ro=1):
     """
     Tableau croisé pour deux variables qualitatives.
     Pourcentages par ligne.
@@ -234,12 +234,13 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False, ro=1):
         tableau de données
     c1,c2 : string
         nom des colonnes
-    weight : string (optionnel),
+    poids : string (optionnel),
         pondération
     p : bool (optionnel)
         ajout d'un test de chi2
-    debug : bool (optionnel)
-        retour des tableaux intermédiaires
+    verb : bool (optionnel)
+        sortie verbeuse des données intermédiaires
+        tableaux complet, absolu, pourcentages, p-value
     ro : int (optionnal)
         arrondi
 
@@ -265,14 +266,14 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False, ro=1):
         return None
 
     # Si les données ne sont pas pondérées, création d'une pondération unitaire
-    if not weight:
+    if not poids:
         df = df.copy()  # Pour ne pas modifier l'objet
-        df["weight"] = 1
-        weight = "weight"
+        df["poids"] = 1
+        poids = "poids"
 
     # Tableau effectif avec distribution marginales
     t_absolu = round(
-        pd.crosstab(df[c1], df[c2], df[weight], aggfunc=sum, margins=True), ro
+        pd.crosstab(df[c1], df[c2], df[poids], aggfunc=sum, margins=True), ro
     ).fillna(0)
     # Tableau pourcentages par ligne (enlever la colonne totale)
     t_pourcentage = t_absolu.drop("All", axis=1).apply(
@@ -301,7 +302,7 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False, ro=1):
     #t.index = list(t.index)[:-1] + ["Total"]
 
     # Retour des tableaux non mis en forme
-    if debug:
+    if verb:
         val_p = chi2_contingency(t_absolu.drop("Total").drop("Total", axis=1))[1]
         return t, t_absolu, t_pourcentage, val_p
 
@@ -314,7 +315,7 @@ def tableau_croise(df, c1, c2, weight=False, p=False, debug=False, ro=1):
     return t
 
 
-def tableau_croise_controle(df, cont, c, r, weight=False, chi2=False):
+def tableau_croise_controle(df, cont, c, r, poids=False, chi2=False):
     """
     Tableau croisé avec variable de contrôle.
 
@@ -326,7 +327,7 @@ def tableau_croise_controle(df, cont, c, r, weight=False, chi2=False):
         colonne de contrôle
     c,r : strings
         colonnes à croiser
-    weight : string (optionnel),
+    poids : string (optionnel),
         poids optionnel
 
     Returns
@@ -351,16 +352,16 @@ def tableau_croise_controle(df, cont, c, r, weight=False, chi2=False):
         return None
 
     # Si les données ne sont pas pondérées, création d'une pondération unitaire
-    if not weight:
+    if not poids:
         df = df.copy()  # Pour ne pas modifier l'objet
-        df["weight"] = 1
-        weight = "weight"
+        df["poids"] = 1
+        poids = "poids"
 
     tab = {}
     mod = df[cont].unique()  # modalités de contrôle
     for i in mod:
         d = df[df[cont] == i]  # sous-ensemble
-        t, p = tableau_croise(d, c, r, weight, p=True)
+        t, p = tableau_croise(d, c, r, poids, p=True)
         # Mettre Total plutôt que All dans le tableau
         t.columns = list(t.columns)[:-1] + ["Total"]
         t.index = list(t.index)[:-1] + ["Total"]
@@ -380,7 +381,7 @@ def tableau_croise_controle(df, cont, c, r, weight=False, chi2=False):
 
 
 def tableau_croise_multiple(
-    df, dep, indeps, weight=False, chi2=True, axis=0, ss_total=True, contenu = "complet"
+    df, var_dep, var_indeps, poids=False, chi2=True, axis=0, ss_total=True, contenu = "complet"
 ):
     """
     Tableau croisé multiples variables.
@@ -390,13 +391,13 @@ def tableau_croise_multiple(
     ----------
     df : DataFrame
         Tableau de données
-    dep : str or dic
+    var_dep : str or dic
         Variable dépendante en colonne
         Pour les dictionnaires : {nom:label}
-    indeps : dict or list
+    var_indeps : dict or list
         dictionnaire des variables indépendantes
         Pour les dictionnaires : {nom:label}
-    weight : str, optionnal
+    poids : str, optionnal
         poids optionnel
     axis : int, optionnal
         sens des pourcentages,axis = 1 pour les colonnes
@@ -420,17 +421,17 @@ def tableau_croise_multiple(
     if not isinstance(df, pd.DataFrame):
         warnings.warn("Attention, ce n'est pas un tableau Pandas", UserWarning)
         return None
-    if (type(indeps) != list) and (type(indeps) != dict):
+    if (type(var_indeps) != list) and (type(var_indeps) != dict):
         warnings.warn(
             "Les variables ne sont pas renseignées sous le bon format", UserWarning
         )
         return None
-    if dep not in df.columns:
+    if var_dep not in df.columns:
         warnings.warn(
-            "La variable {} n'est pas dans le tableau".format(dep), UserWarning
+            "La variable {} n'est pas dans le tableau".format(var_dep), UserWarning
         )
         return None
-    for i in indeps:
+    for i in var_indeps:
         if i not in df.columns:
             warnings.warn(
                 "La variable {} n'est pas dans le tableau".format(i), UserWarning
@@ -438,8 +439,8 @@ def tableau_croise_multiple(
             return None
 
     # Noms des variables
-    if type(indeps) == list:
-        indeps = {i: i for i in indeps}
+    if type(var_indeps) == list:
+        var_indeps = {i: i for i in var_indeps}
 
     t_all = {}
 
@@ -447,13 +448,13 @@ def tableau_croise_multiple(
     check_total = []
 
     # Boucle sur les variables indépendantes
-    for i in indeps:
+    for i in var_indeps:
         # Tableau croisé pondéré (deux orientations possibles)
         if axis == 0:
-            t_comp,t_ab,t_per,p = tableau_croise(df,i,dep,weight,debug=True)
+            t_comp,t_ab,t_per,p = tableau_croise(df,i,var_dep,poids,verb=True)
             
         else:
-            t_comp,t_ab,t_per,p = tableau_croise(df,dep,weight,i,debug=True)
+            t_comp,t_ab,t_per,p = tableau_croise(df,var_dep,poids,i,verb=True)
             t_comp = t_comp.T
             t_ab = t_ab.T
             t_per = t_per.T
@@ -473,14 +474,14 @@ def tableau_croise_multiple(
         if not ss_total:
             t = t.drop("Total")
 
-        dis = tri_a_plat(df, i, weight=weight)
+        dis = tri_a_plat(df, i, poids=poids)
 
         check_total.append(t.iloc[-1, -1])
         t["Distribution"] = dis["Pourcentage (%)"].apply(lambda x: "{}%".format(x))
         if chi2:
-            t_all[indeps[i] + " (p = %.03f)" % p] = t
+            t_all[var_indeps[i] + " (p = %.03f)" % p] = t
         else:
-            t_all[indeps[i]] = t
+            t_all[var_indeps[i]] = t
 
     # Création d'un DataFrame
     t_all = pd.concat(t_all)
@@ -529,7 +530,7 @@ def significativite(x, digits=4):
     return str(x)
 
 
-def tableau_reg_logistique(regression, data, indep_var, sig=True):
+def tableau_reg_logistique(regression, data, var_indeps, sig=True):
     """
     Mise en forme des résultats de la régression logistique.
     Lecture pour les SHS.
@@ -540,7 +541,7 @@ def tableau_reg_logistique(regression, data, indep_var, sig=True):
         modèle de régression
     data : DataFrame
         tableau des données
-    indep_var : dict or list
+    var_indeps : dict or list
         liste des colonnes de la régression
     sig : bool, optionnal
         faire apparaître la significativité
@@ -564,14 +565,14 @@ def tableau_reg_logistique(regression, data, indep_var, sig=True):
     """
 
     # Séparation des variables et des effets d'interaction
-    indep_var_unique = {}
-    for v in indep_var:
+    var_indeps_unique = {}
+    for v in var_indeps:
         if "*" in v:  # cas d'une interaction
             for e in v.split("*"):
-                if not e.strip() in indep_var_unique:
-                    indep_var_unique[e.strip()] = e.strip()
+                if not e.strip() in var_indeps_unique:
+                    var_indeps_unique[e.strip()] = e.strip()
         else:
-            indep_var_unique[v] = indep_var[v]
+            var_indeps_unique[v] = var_indeps[v]
 
     # Mise en forme du tableau général OR /
     table = np.exp(regression.conf_int())
@@ -598,7 +599,7 @@ def tableau_reg_logistique(regression, data, indep_var, sig=True):
     # Identification des références utilisées par la régression
     # Premier élément des modalités classées pour les variables non numériques
     refs = []
-    for v in indep_var_unique:
+    for v in var_indeps_unique:
         if not v in var_num:
             r = sorted(data[v].dropna().unique())[0]  # premier élément
             refs.append(str(v) + "[T." + str(r) + "]")  # ajout de la référence
@@ -616,10 +617,10 @@ def tableau_reg_logistique(regression, data, indep_var, sig=True):
             if "[T." in i:  # Si c'est une variable catégorielle
                 tmp = i.split("[T.")
                 new_index.append(
-                    (indep_var_unique[tmp[0]], tmp[1][0:-1])
+                    (var_indeps_unique[tmp[0]], tmp[1][0:-1])
                 )  # gérer l'absence dans le dictionnaire
             else:
-                new_index.append((indep_var_unique[i], "numérique"))
+                new_index.append((var_indeps_unique[i], "numérique"))
 
     # Réintégration de l'Intercept dans le tableau
     new_index.append((".Intercept", ""))
@@ -652,7 +653,7 @@ def construction_formule(dep, indep):
     return dep + " ~ " + " + ".join([i for i in indep])
 
 
-def regression_logistique(df, dep_var, indep_var, weight=False, table_only=True):
+def regression_logistique(df, dep_var, var_indeps, poids=False, table_only=True):
     """
     Régression logistique binomiale pondérée.
 
@@ -662,9 +663,9 @@ def regression_logistique(df, dep_var, indep_var, weight=False, table_only=True)
         tableau des données
     dep_var : str
         variable dépendante
-    indep_var : dict or list
+    var_indeps : dict or list
         liste des variables indépendantes
-    weight : str, optionnal
+    poids : str, optionnal
         pondération
     table_only : bool
         seulement le tableau ou le modèle
@@ -681,34 +682,34 @@ def regression_logistique(df, dep_var, indep_var, weight=False, table_only=True)
     """
 
     # S'il n'y a pas de pondération définie
-    if not weight:
-        df["weight"] = 1
-        weight = "weight"
+    if not poids:
+        df["poids"] = 1
+        poids = "poids"
 
     # Vérifier que les variables ne contiennent pas de variables
-    if len([i for i in indep_var if " " in i]) > 0:
+    if len([i for i in var_indeps if " " in i]) > 0:
         print(
             "Attention, au moins un nom de variable contient un espace. Veuillez l'enlever.",
-            ",".join([repr(i) for i in indep_var if " " in i]),
+            ",".join([repr(i) for i in var_indeps if " " in i]),
         )
         return None
 
     # Mettre les variables indépendantes en dictionnaire si nécessaire
-    if type(indep_var) == list:
-        indep_var = {i: i for i in indep_var}
+    if type(var_indeps) == list:
+        var_indeps = {i: i for i in var_indeps}
 
     # Construction de la formule
-    f = construction_formule(dep_var, indep_var)
+    f = construction_formule(dep_var, var_indeps)
 
     # Création du modèle
     modele = smf.glm(
-        formula=f, data=df, family=sm.families.Binomial(), freq_weights=df[weight]
+        formula=f, data=df, family=sm.families.Binomial(), freq_weights=df[poids]
     )
     regression = modele.fit()
 
     # Retourner le tableau de présentation
     if table_only:
-        tableau = tableau_reg_logistique(regression, df, indep_var, sig=True)
+        tableau = tableau_reg_logistique(regression, df, var_indeps, sig=True)
         return tableau
     else:
         return regression
@@ -848,7 +849,7 @@ def _escape_quotes(variable: str) -> str:
 
 
 def catdes(df: pd.DataFrame, vardep: str, varindep: List[str] = None,
-           proba: float = 0.05, weight: Optional[str] = False, mod: bool = False):
+           proba: float = 0.05, poids: Optional[str] = False, mod: bool = False):
     """
     Calcule la relation entre une variable catégorielle et plusieurs variables.
     Implémentation de la fonction catdes de FactoMineR.
@@ -863,7 +864,7 @@ def catdes(df: pd.DataFrame, vardep: str, varindep: List[str] = None,
         liste des variables indépendantes
     proba : float (optionnal)
         niveau de significativité appliqué
-    weight : string (optionnal)
+    poids : string (optionnal)
         colonne de pondération
     mod : bool (optionnal)
         calculer la relation entre modalités
@@ -903,7 +904,7 @@ def catdes(df: pd.DataFrame, vardep: str, varindep: List[str] = None,
     if not varindep:
         # Cas où les variables ne sont pas proposées
         cols_cat = [c for c in df.columns if not is_numeric_dtype(df[c]) and c != vardep] # sans la variable dépendante
-        cols_num = [c for c in df.columns if is_numeric_dtype(df[c]) and c != weight] # sans la pondération
+        cols_num = [c for c in df.columns if is_numeric_dtype(df[c]) and c != poids] # sans la pondération
     else:
         # Cas où les variables sont proposées
         for i in varindep:
@@ -913,9 +914,9 @@ def catdes(df: pd.DataFrame, vardep: str, varindep: List[str] = None,
                 cols_cat.append(i)
 
     # Pondération à 1 si pas de pondération
-    if not weight :
-        df["weight"] = [1]*len(df)
-        weight = "weight"
+    if not poidq :
+        df["poids"] = [1]*len(df)
+        poids = "poids"
     
     # Calcul de l'association par variables
     
@@ -928,7 +929,7 @@ def catdes(df: pd.DataFrame, vardep: str, varindep: List[str] = None,
     for v in cols_cat:
 
         # Calcul du tableau croisé
-        t,a,p = tableau_croise(df,vardep,v,weight=weight,debug=True)
+        t,a,p = tableau_croise(df,vardep,v,poids=poids,verb=True)
         a = a.drop(index="All",columns="All")
         
         # Calcul du chi2
@@ -982,7 +983,7 @@ def catdes(df: pd.DataFrame, vardep: str, varindep: List[str] = None,
     # Création des colonnes 0/1 par modalités
     tab_dep = pd.get_dummies(df[[vardep]])
     tab_ind = pd.get_dummies(df[var_cat_corr])
-    tab_all = pd.get_dummies(df[list(set([vardep]+var_cat_corr+[weight]))]) #assurer l'unicité des colonnes
+    tab_all = pd.get_dummies(df[list(set([vardep]+var_cat_corr+[poids]))]) #assurer l'unicité des colonnes
     n = len(df)
     
     # Boucle sur les variables
@@ -992,9 +993,9 @@ def catdes(df: pd.DataFrame, vardep: str, varindep: List[str] = None,
         for modalite in tab_ind.columns:
             # Calcul d'un test hypergéométrique
             # Arrondi car pondération
-            n_kj = round((tab_all[tab_all[categorie]==1][modalite] * tab_all[tab_all[categorie]==1][weight]).sum())
-            n_j = round((tab_all[modalite]*tab_all[weight]).sum())
-            n_k = round((tab_all[categorie]*tab_all[weight]).sum())
+            n_kj = round((tab_all[tab_all[categorie]==1][modalite] * tab_all[tab_all[categorie]==1][poids]).sum())
+            n_j = round((tab_all[modalite]*tab_all[poids]).sum())
+            n_k = round((tab_all[categorie]*tab_all[poids]).sum())
             # Test dans catdes de FactomineR
             # 2 * P(N >= n_kj-1) + P(n_kj)
             prob_inf2 = hypergeom.cdf(n_kj-1,n,n_j,n_k)*2 + hypergeom.pmf(n_kj,n,n_j,n_k)
@@ -1005,7 +1006,7 @@ def catdes(df: pd.DataFrame, vardep: str, varindep: List[str] = None,
             # Calcul de la valeur test à partir d'une loi normale unitaire
             V = (1-2*int(n_kj/n_j>n_k/n))*norm.ppf(p_min2/2)
             # Calcul du chi2 sur le tableau croisé 2x2
-            t,a,p = tableau_croise(tab_all,categorie,modalite,weight,debug=True)
+            t,a,p = tableau_croise(tab_all,categorie,modalite,poids,verb=True)
             a = a.drop(index="All",columns="All")
             k,p_chi2,f,t = chi2_contingency(a,correction=False)
             #  Ajout aux résultats si significatif
@@ -1043,12 +1044,12 @@ def catdes(df: pd.DataFrame, vardep: str, varindep: List[str] = None,
     for v in var_num_corr:
 
         # Calcul de paramètres
-        moy_mod = df.groupby(vardep).apply(lambda x : moyenne_ponderee(x[v],x[weight]))
+        moy_mod = df.groupby(vardep).apply(lambda x : moyenne_ponderee(x[v],x[poids]))
         n_mod = df.groupby(vardep)[v].count()
         n = sum(n_mod)
-        sd_mod = df.groupby(vardep).apply(lambda x : ecart_type_pondere(x[v],x[weight]))
-        moy = moyenne_ponderee(df[v],df[weight])
-        sd =  ecart_type_pondere(df[v],df[weight])
+        sd_mod = df.groupby(vardep).apply(lambda x : ecart_type_pondere(x[v],x[poids]))
+        moy = moyenne_ponderee(df[v],df[poids])
+        sd =  ecart_type_pondere(df[v],df[poids])
 
         # Pour chaque modalités de la variable dépendante
         for m in var_dep_mod:
@@ -1077,19 +1078,19 @@ def catdes(df: pd.DataFrame, vardep: str, varindep: List[str] = None,
 # Classes et fonctions temporaires non finalisées
 
 
-def tableau_reg_logistique_distribution(df, dep_var, indep_var, weight=False):
+def tableau_reg_logistique_distribution(df, dep_var, var_indeps, poids=False):
 
     # Noms des variables
-    if isinstance(indep_var, list):
-        indep_var = {i: i for i in indep_var}
+    if isinstance(var_indeps, list):
+        var_indeps = {i: i for i in var_indeps}
 
     # régression logistique
-    reg = regression_logistique(df, dep_var, indep_var, weight=weight, table_only=True)
+    reg = regression_logistique(df, dep_var, var_indeps, poids=poids, table_only=True)
 
     # Distribution
     dis = {}
-    for i in indep_var:
-        dis[indep_var[i]] = tri_a_plat(df, i, weight=weight)["Pourcentage (%)"].drop(
+    for i in var_indeps:
+        dis[var_indeps[i]] = tri_a_plat(df, i, poids=poids)["Pourcentage (%)"].drop(
             "Total"
         )
     dis = pd.concat(dis, axis=0)

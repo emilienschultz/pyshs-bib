@@ -1,7 +1,7 @@
 """
 PySHS - Faciliter le traitement de données de questionnaires en SHS
 Langue : Français
-Dernière modification : 09/07/2022
+Dernière modification : 16/05/2023
 Auteur : Émilien Schultz
 Contributeurs.rices :
 - Matthias Bussonnier
@@ -46,4 +46,4 @@ from ._core import (
     catdes
 )
 
-__version__ = "0.3.4"
+__version__ = "0.3.5"

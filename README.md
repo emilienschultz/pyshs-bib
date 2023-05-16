@@ -4,7 +4,7 @@ La bibliothèque PySHS a pour but de faciliter l'analyse de données de question
 
 Elle a pour but de s'enrichir progressivement pour permettre à Python de devenir une alternative (réaliste) à R avec des fonctions facilement utilisables sur les opérations habituelles.
 
-La version actuelle est la **0.3.3**
+La version actuelle est la **0.3.5**
 
 ## Contenu
 
