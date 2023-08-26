@@ -1,27 +1,23 @@
-# modification du 16/05/2023
+# modification du 26/08/2023
 
 import warnings
 import math
 from typing import Optional, List
-
-
 import numpy as np
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
-
 from scipy.stats import chi2_contingency
 from scipy.stats.distributions import chi2
 from scipy.stats import hypergeom
 from scipy.stats import norm
-
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
-
 import plotly.graph_objects as go
-
 import statsmodels.api as sm
 from statsmodels.formula.api import ols
 
+# gestion de la langue
+langue = "fr"
 
 def description(df):
     """
@@ -38,11 +34,18 @@ def description(df):
 
     """
     tableau = []
+
+    # gestion de la langue dans le tableau
+    if langue == "fr":
+        textes = ["Numérique","Catégorielle"]
+    if langue == "en":
+        textes = ["Numeric","Category"]
+        
     for i in df.columns:
         if is_numeric_dtype(df[i]):
             l = [
                 i,
-                "Numérique",
+                textes[0],
                 None,
                 None,
                 round(df[i].mean(), 2),
@@ -52,7 +55,7 @@ def description(df):
         else:
             l = [
                 i,
-                "Catégorielle",
+                textes[1],
                 len(df[i].unique()),
                 df[i].mode().iloc[0],
                 None,
@@ -60,9 +63,8 @@ def description(df):
                 pd.isnull(df[i]).sum(),
             ]
         tableau.append(l)
-    tableau = pd.DataFrame(
-        tableau,
-        columns=[
+    if langue == "fr":
+        columns = [
             "Variable",
             "Type",
             "Modalités",
@@ -70,8 +72,22 @@ def description(df):
             "Moyenne",
             "Écart-type",
             "Valeurs manquantes",
-        ],
-    ).set_index("Variable")
+        ]
+    if langue == "en":
+        columns = [
+            "Variable",
+            "Type",
+            "Modalities",
+            "Mode",
+            "Mean",
+            "Standard error",
+            "Missing values",
+        ]
+    
+    tableau = pd.DataFrame(
+        tableau,
+        columns=columns,
+    ).set_index(columns[0])
     return tableau.fillna(" ")
 
 
@@ -113,15 +129,19 @@ def tri_a_plat(df, variable, poids=False, ro=1):
         effectif = df[variable].value_counts()
         pourcentage = round(100 * df[variable].value_counts(normalize=True), ro)
         tableau = pd.DataFrame([effectif, pourcentage]).T
-        tableau.columns = ["Effectif", "Pourcentage (%)"]
-
     # Cas des données pondérées
     else:
         effectif = round(df.groupby(variable)[poids].sum(), ro)
         total = effectif.sum()
         pourcentage = round(100 * effectif / total, ro)
         tableau = pd.DataFrame([effectif, pourcentage]).T
-        tableau.columns = ["Effectif redressé", "Pourcentage (%)"]
+    
+    # Mise en forme du tableau
+    if langue == "fr":
+        columns = ["Effectif", "Pourcentage (%)"]
+    elif langue == "en":
+        columns = ["Frequency", "Percentage (%)"]
+    tableau.columns = columns
 
     # Retourner le tableau ordonné en forçant l'index en texte
     tableau.index = [str(i) for i in tableau.index]
@@ -161,19 +181,15 @@ def verification_recodage(corpus, c1, c2):
         return None
 
     # Vérifier que les deux variables sont bien dans le corpus
-    if c1 not in corpus.columns:
-        warnings.warn("La variable %s n'est pas dans le tableau" % c1, UserWarning)
-        return None
-    if c2 not in corpus.columns:
-        warnings.warn("La variable %s n'est pas dans le tableau" % c2, UserWarning)
-        return None
+    for c in [c1,c2]:
+        if c not in corpus.columns:
+            warnings.warn("La variable %s n'est pas dans le tableau" % c, UserWarning)
+            return None
 
     # Vérification s'il y a des valeurs manquantes dans la colonne d'arrivée
     s = pd.isnull(corpus[c2]).sum()
     if s > 0:
-        warnings.warn(
-            "Il y a %d valeurs nulles dans la colonne recodée" % s, UserWarning
-        )
+        warnings.warn("Il y a %d valeurs nulles dans la colonne recodée" % s, UserWarning)    
 
     # renommer et modifier les labels pour éviter les homonymies
     df = corpus[[c1, c2]].copy()
@@ -225,8 +241,7 @@ def verification_recodage(corpus, c1, c2):
 
 def tableau_croise(df, c1, c2, poids=False, p=False, verb=False, ro=1):
     """
-    Tableau croisé pour deux variables qualitatives.
-    Pourcentages par ligne.
+    Tableau croisé pour deux variables qualitatives et % par ligne.
 
     Parameters
     ----------
@@ -454,7 +469,7 @@ def tableau_croise_multiple(
             t_comp,t_ab,t_per,p = tableau_croise(df,i,var_dep,poids,verb=True)
             
         else:
-            t_comp,t_ab,t_per,p = tableau_croise(df,var_dep,poids,i,verb=True)
+            t_comp,t_ab,t_per,p = tableau_croise(df,var_dep,i,poids,verb=True)
             t_comp = t_comp.T
             t_ab = t_ab.T
             t_per = t_per.T
@@ -477,7 +492,7 @@ def tableau_croise_multiple(
         dis = tri_a_plat(df, i, poids=poids)
 
         check_total.append(t.iloc[-1, -1])
-        t["Distribution"] = dis["Pourcentage (%)"].apply(lambda x: "{}%".format(x))
+        t["Distribution"] = dis[dis.columns[1]].apply(lambda x: "{}%".format(x))
         if chi2:
             t_all[var_indeps[i] + " (p = %.03f)" % p] = t
         else:
@@ -486,7 +501,10 @@ def tableau_croise_multiple(
     # Création d'un DataFrame
     t_all = pd.concat(t_all)
     t_all.columns.name = ""
-    t_all.index.names = ["Variable", "Modalités"]
+    if langue=="fr":
+        t_all.index.names = ["Variable", "Modalités"]
+    elif langue=="en":
+        t_all.index.names = ["Variable", "Modalities"]
 
     # Alerter sur les totaux différents
     if len(set(check_total)) != 1:
@@ -576,10 +594,10 @@ def tableau_reg_logistique(regression, data, var_indeps, sig=True):
 
     # Mise en forme du tableau général OR /
     table = np.exp(regression.conf_int())
-    table["Odds Ratio"] = round(np.exp(regression.params), 2)
+    table["OR"] = round(np.exp(regression.params), 2)
     table["p"] = round(regression.pvalues, 3)
     table["IC 95%"] = table.apply(
-        lambda x: "%.2f [%.2f-%.2f]" % (x["Odds Ratio"], x[0], x[1]), axis=1
+        lambda x: "%.2f [%.2f-%.2f]" % (x["OR"], x[0], x[1]), axis=1
     )
 
     # Ajout de la significativité
@@ -616,8 +634,9 @@ def tableau_reg_logistique(regression, data, var_indeps, sig=True):
         else:
             if "[T." in i:  # Si c'est une variable catégorielle
                 tmp = i.split("[T.")
+                var = tmp[0].replace("Q(\'","").replace("\')","") #enlever la décoration
                 new_index.append(
-                    (var_indeps_unique[tmp[0]], tmp[1][0:-1])
+                    (var_indeps_unique[var], tmp[1][0:-1])
                 )  # gérer l'absence dans le dictionnaire
             else:
                 new_index.append((var_indeps_unique[i], "numérique"))
@@ -627,7 +646,11 @@ def tableau_reg_logistique(regression, data, var_indeps, sig=True):
     table.loc[".Intercept"] = temp_intercept
 
     # Réindexation du tableau
-    new_index = pd.MultiIndex.from_tuples(new_index, names=["Variable", "Modalité"])
+    if langue == "fr":
+        names=["Variable", "Modalité"]
+    elif langue == "en":
+        names = ["Variable", "Modality"]
+    new_index = pd.MultiIndex.from_tuples(new_index, names=names)
     table.index = new_index
     table = table.sort_index()
 
@@ -650,7 +673,7 @@ def construction_formule(dep, indep):
     str : formule de régression
 
     """
-    return dep + " ~ " + " + ".join([i for i in indep])
+    return dep + " ~ " + " + ".join(["Q(\'%s\')"%i for i in indep])
 
 
 def regression_logistique(df, dep_var, var_indeps, poids=False, table_only=True):
@@ -673,27 +696,12 @@ def regression_logistique(df, dep_var, var_indeps, poids=False, table_only=True)
     Returns
     -------
     DataFrame : tableau des résultats
-
-    Notes
-    -----
-    No space in the names of the variables
-    BETA VERSION BE CAREFUL NEED CHECKING
-
     """
 
     # S'il n'y a pas de pondération définie
     if not poids:
         df["poids"] = 1
         poids = "poids"
-
-    # Vérifier que les variables ne contiennent pas de variables
-    if len([i for i in var_indeps if " " in i]) > 0:
-        print(
-            "Attention, au moins un nom de variable contient un espace. Veuillez l'enlever.",
-            ",".join([repr(i) for i in var_indeps if " " in i]),
-        )
-        return None
-
     # Mettre les variables indépendantes en dictionnaire si nécessaire
     if type(var_indeps) == list:
         var_indeps = {i: i for i in var_indeps}
@@ -705,6 +713,7 @@ def regression_logistique(df, dep_var, var_indeps, poids=False, table_only=True)
     modele = smf.glm(
         formula=f, data=df, family=sm.families.Binomial(), freq_weights=df[poids]
     )
+
     regression = modele.fit()
 
     # Retourner le tableau de présentation
