@@ -15,6 +15,7 @@ import statsmodels.formula.api as smf
 import plotly.graph_objects as go
 import statsmodels.api as sm
 from statsmodels.formula.api import ols
+import regex
 
 # gestion de la langue
 langue = "fr"
