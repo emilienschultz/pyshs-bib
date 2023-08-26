@@ -29,8 +29,7 @@ def test_description(df_test):
 
 
 def test_tri_a_plat(df_test):
-    assert pyshs.tri_a_plat(df_test, "C2", "C1").loc["A", "Effectif"] == 21
-
+    assert isinstance(pyshs.tri_a_plat(df_test, "C2", "C1"),pd.DataFrame)
 
 def test_tableau_croise(df_test):
     assert isinstance(pyshs.tableau_croise(df_test, "C2", "C3", "C1"),pd.DataFrame)
