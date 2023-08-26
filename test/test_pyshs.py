@@ -29,7 +29,7 @@ def test_description(df_test):
 
 
 def test_tri_a_plat(df_test):
-    assert pyshs.tri_a_plat(df_test, "C2", "C1").loc["A", "Effectif redressé"] == 21
+    assert pyshs.tri_a_plat(df_test, "C2", "C1").loc["A", "Effectif"] == 21
 
 
 def test_tableau_croise(df_test):
