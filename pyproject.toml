@@ -18,6 +18,9 @@ requires = [
     "plotly",
     "regex",
     "openpyxl",
-    "samplics"
+    "samplics",
+    "matplotlib",
+    "seaborn",
+    "adjustText"
 ]
 

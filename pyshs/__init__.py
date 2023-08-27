@@ -26,6 +26,7 @@ Pour le moment le module PySHS comprend :
 
 En beta :
 - une fonction de test du ratio de vraissemblance de deux régressions
+- une fonction de visualisation des ACM de prince en statique
 
 """
 
@@ -44,7 +45,7 @@ from ._core import (
     vers_excel,
     moyenne_ponderee,
     ecart_type_pondere,
-    catdes
-)
+    catdes,
+    plot_acm)
 
-__version__ = "0.3.6"
+__version__ = "0.3.7"

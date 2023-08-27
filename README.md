@@ -1,10 +1,10 @@
 # Bibliothèque PySHS
 
-La bibliothèque PySHS a pour but de faciliter l'analyse de données de questionnaire en sciences humaines et sociales pour les francophones avec Python. 
+La bibliothèque PySHS a pour but de faciliter l'analyse de données de questionnaire en sciences humaines et sociales pour les francophones avec Python. Dit autrement, c'est une API pour faciliter l'utilisation d'autres outils.
 
 Elle a pour but de s'enrichir progressivement pour permettre à Python de devenir une alternative (réaliste) à R avec des fonctions facilement utilisables sur les opérations habituelles.
 
-La version actuelle est la **0.3.6**
+La version actuelle est la **0.3.7**
 
 ## Contenu
 
@@ -12,9 +12,10 @@ La version actuelle est la **0.3.6**
 
 - Description d'un tableau de données
 - Tri à plat et tableau(x) croisé(s) avec pondération
-- Régression logistique facilitée
-- Sauvegarde Excel de tableaux
+- Régression logistique sous forme d'un tableau
+- Sauvegarde en format tableur de tableaux
 - Importation de la fonction `catdes` de FactoMineR (association variable catégorielle/autres variables)
+- Visualisation statique d'une ACM de Prince
 
 ## Installation
 

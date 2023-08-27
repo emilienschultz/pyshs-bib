@@ -23,17 +23,16 @@ def df_test():
 
 # tests unitaires pour chacune des fonctions de la bibliothèque
 
-
 def test_description(df_test):
     assert isinstance(pyshs.description(df_test), pd.DataFrame)
 
-
 def test_tri_a_plat(df_test):
     assert isinstance(pyshs.tri_a_plat(df_test, "C2", "C1"),pd.DataFrame)
+    assert pyshs.tri_a_plat(df_test, "C2", "C1").shape == (3,2)
 
 def test_tableau_croise(df_test):
     assert isinstance(pyshs.tableau_croise(df_test, "C2", "C3", "C1"),pd.DataFrame)
-
+    assert len(pyshs.tableau_croise(df_test, "C2", "C3",verb=True))==4
 
 def test_tableau_croise_multiple(df_test):
     assert isinstance(
@@ -43,18 +42,14 @@ def test_tableau_croise_multiple(df_test):
         pd.DataFrame,
     )
 
-
 def test_regression_logistique(df_test):
     assert isinstance(pyshs.regression_logistique(df_test, "C5", ["C1"]), pd.DataFrame)
-
 
 def test_moyenne_ponderee():
     assert pyshs.moyenne_ponderee([1, 2, 3], [1, 1, 2]) == 2.25
 
-
 def test_ecart_type_pondere():
     assert pyshs.ecart_type_pondere([1, 1, 1], [10, 1, 2]) == 0
-
 
 if __name__ == "__main__":
 
