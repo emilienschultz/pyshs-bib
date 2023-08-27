@@ -653,6 +653,7 @@ def tableau_reg_logistique(regression, data, var_indeps, sig=True):
                     (var_indeps_unique[var], tmp[1][0:-1])
                 )  # gérer l'absence dans le dictionnaire
             else:
+                i = i.replace("Q(\'","").replace("\')","") #enlever la décoration
                 new_index.append((var_indeps_unique[i], "numérique"))
 
     # Réintégration de l'Intercept dans le tableau
