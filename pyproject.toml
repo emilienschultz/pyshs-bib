@@ -16,6 +16,8 @@ requires = [
     "statsmodels",
     "scipy",
     "plotly",
-    "regex"
+    "regex",
+    "openpyxl",
+    "samplics"
 ]
 

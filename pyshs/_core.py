@@ -16,6 +16,7 @@ import plotly.graph_objects as go
 import statsmodels.api as sm
 from statsmodels.formula.api import ols
 import regex
+from samplics.categorical import CrossTabulation
 
 # gestion de la langue
 langue = "fr"
@@ -255,10 +256,10 @@ def tableau_croise(df, c1, c2, poids=False, p=False, verb=False, ro=1):
     p : bool (optionnel)
         ajout d'un test de chi2
     verb : bool (optionnel)
-        sortie verbeuse des données intermédiaires
+        sortie "verbeuse"
         tableaux complet, absolu, pourcentages, p-value
     ro : int (optionnal)
-        arrondi
+        arrondi des données
 
     Returns
     -------
@@ -281,11 +282,13 @@ def tableau_croise(df, c1, c2, poids=False, p=False, verb=False, ro=1):
         )
         return None
 
+    pondere = True
     # Si les données ne sont pas pondérées, création d'une pondération unitaire
     if not poids:
         df = df.copy()  # Pour ne pas modifier l'objet
         df["poids"] = 1
         poids = "poids"
+        pondere = False
 
     # Tableau effectif avec distribution marginales
     t_absolu = round(
@@ -314,8 +317,19 @@ def tableau_croise(df, c1, c2, poids=False, p=False, verb=False, ro=1):
     t = t.rename(index={"All":"Total"},columns={"All":"Total"})
     t_absolu = t_absolu.rename(index={"All":"Total"},columns={"All":"Total"})
     t_pourcentage = t_pourcentage.rename(index={"All":"Total"},columns={"All":"Total"})
-    #t.columns = list(t.columns)[:-1] + ["Total"]
-    #t.index = list(t.index)[:-1] + ["Total"]
+
+    # Calcul du test
+    if pondere: # correction Rao-Scott avec samplics
+        tab = CrossTabulation("count")
+        tab.tabulate(
+            vars=df[[c1,c2]],
+            samp_weight=df[poids],
+            remove_nan=True,
+        )
+        val_p = tab.stats["Pearson-Adj"]["p_value"]
+    else: # sans correction
+        # TO DO : utiliser le calcul de samplics ?
+        val_p = chi2_contingency(t_absolu.drop("Total").drop("Total", axis=1))[1]
 
     # Retour des tableaux non mis en forme
     if verb:
@@ -324,7 +338,6 @@ def tableau_croise(df, c1, c2, poids=False, p=False, verb=False, ro=1):
 
     # Retour du tableau avec la p-value
     if p:
-        val_p = chi2_contingency(t_absolu.drop("Total").drop("Total", axis=1))[1]
         return t, val_p
 
     # Retour du tableau mis en forme
@@ -796,7 +809,7 @@ def vers_excel(tables, file):
         worksheet.cell(curseur + 1,1,title)
         tables[title].to_excel(writer, sheet_name="Résultats", startrow=curseur + 2)
         curseur += 2 + tables[title].shape[0] + 4
-    writer.save()
+    writer.book.save(file)
 
     return None
 
