@@ -15,6 +15,7 @@ requires = [
     "numpy",
     "statsmodels",
     "scipy",
-    "plotly"
+    "plotly",
+    "regex"
 ]
 
