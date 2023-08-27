@@ -1,12 +1,14 @@
 """
 PySHS - Faciliter le traitement de données de questionnaires en SHS
 Langue : Français
-Dernière modification : 16/05/2023
+Dernière modification : 27/08/2023
 Auteur : Émilien Schultz
 Contributeurs.rices :
 - Matthias Bussonnier
 - Léo Mignot
 - Fatima Gauna
+- Thibault Clérice 
+- Jean-Baptiste Bertrand 
 
 Pour le moment le module PySHS comprend :
 
@@ -17,13 +19,12 @@ Pour le moment le module PySHS comprend :
 - une fonction pour des tableaux croisés multiples (pondérés) afin de voir le lien variable dépendante/indépendantes
 - une fonction pour un tableau croisé à trois variables pour en contrôler une lors de l'analyse
 - une fonction de mise en forme des résultats de la régression logistique de Statsmodel pour avoir un tableau avec les références
-- une fonction pour produire la régression logistique binomiale
+- une fonction pour produire la régression logistique binomiale et la mettre en forme
 - une fonction moyenne & écart-type pondéré
 - une fonction d'écriture de tableaux excels
 - le portage de la fonction R de FactoMineR *catdes* (uniquement quali)
 
-Temporairement :
-- une fonction de mise en forme différente de la régression logistique, incluant les effets d'interaction (beta)
+En beta :
 - une fonction de test du ratio de vraissemblance de deux régressions
 
 """
