@@ -1,10 +1,8 @@
-# Bibliothèque PySHS
+# PySHS : traitement de données en sciences sociales avec Python
 
-La bibliothèque PySHS a pour but de faciliter l'analyse de données de questionnaire en sciences humaines et sociales pour les francophones avec Python. Dit autrement, c'est une API pour faciliter l'utilisation d'autres outils.
+La bibliothèque PySHS a pour but de faciliter l'analyse de données avec Python de questionnaire en sciences humaines et sociales pour les francophones.
 
-Elle a pour but de s'enrichir progressivement pour permettre à Python de devenir une alternative (réaliste) à R avec des fonctions facilement utilisables sur les opérations habituelles.
-
-La version actuelle est la **0.3.7**
+Elle vise à combler (partiellement) le manque de fonctions de traitement de données en Python pour les enquêtes par questionnaires, notamment en comparaison avec R.
 
 ## Contenu
 
@@ -12,21 +10,27 @@ La version actuelle est la **0.3.7**
 
 - Description d'un tableau de données
 - Tri à plat et tableau(x) croisé(s) avec pondération
-- Régression logistique sous forme d'un tableau
+- Régression logistique sous forme d'un tableau simple
 - Sauvegarde en format tableur de tableaux
 - Importation de la fonction `catdes` de FactoMineR (association variable catégorielle/autres variables)
 - Visualisation statique d'une ACM de Prince
 
+N'hésitez pas à compléter :) 
+
 ## Installation
 
-:warning: PySHS est uniquement compatible avec **Python 3**
-
-:warning: La bibliothèque est encore en construction donc des changements peuvent arriver vite. Pensez à la mettre à jour, le nom des fonctions change encore.
-
-**Via PyPI**
+### Avec pip
 
 ```sh
 $ pip install pyshs --upgrade
+```
+
+### Version de développement
+
+```sh
+$ git clone https://github.com/emilienschultz/pyshs-bib.git
+$ cd pyshs
+$ pip install -e .
 ```
 
 ## Utilisation
@@ -50,4 +54,4 @@ $ pip install pyshs --upgrade
 
 ### Autres utilisations
 
-Voir le Notebook **Exemple PySHS.ipynb** qui montre l'utilisation des fonctions.
+Voir le Notebook **Exemple PySHS.ipynb** pour voir les fonctions disponibles.
