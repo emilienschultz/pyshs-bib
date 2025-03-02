@@ -1,14 +1,14 @@
 """
 PySHS - Faciliter le traitement de données de questionnaires en SHS
 Langue : Français
-Dernière modification : 27/08/2023
+Dernière modification : 2/03/2025
 Auteur : Émilien Schultz
 Contributeurs.rices :
 - Matthias Bussonnier
 - Léo Mignot
 - Fatima Gauna
-- Thibault Clérice 
-- Jean-Baptiste Bertrand 
+- Thibault Clérice
+- Jean-Baptiste Bertrand
 
 Pour le moment le module PySHS comprend :
 
@@ -31,21 +31,22 @@ En beta :
 """
 
 from ._core import (
+    catdes,
+    construction_formule,
     description,
-    tri_a_plat,
-    verification_recodage,
+    ecart_type_pondere,
+    likelihood_ratio,
+    moyenne_ponderee,
+    plot_acm,
+    regression_logistique,
+    significativite,
     tableau_croise,
     tableau_croise_controle,
     tableau_croise_multiple,
-    significativite,
     tableau_reg_logistique,
-    construction_formule,
-    regression_logistique,
-    likelihood_ratio,
+    tri_a_plat,
+    verification_recodage,
     vers_excel,
-    moyenne_ponderee,
-    ecart_type_pondere,
-    catdes,
-    plot_acm)
+)
 
-__version__ = "0.3.7"
+__version__ = "0.3.8"

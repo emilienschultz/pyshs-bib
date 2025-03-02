@@ -1,0 +1,9 @@
+matplotlib
+numpy
+pandas
+plotly
+seaborn
+statsmodels
+adjustText
+samplics
+scipy

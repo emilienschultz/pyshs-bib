@@ -1,30 +1,29 @@
-# modification du 27/08/2023
+# modification du 02/03/2025
 
-import warnings
 import math
-from typing import Optional, List
-import numpy as np
-import pandas as pd
-from pandas.api.types import is_numeric_dtype
-from scipy.stats import chi2_contingency
-from scipy.stats.distributions import chi2
-from scipy.stats import hypergeom
-from scipy.stats import norm
-import statsmodels.api as sm
-import statsmodels.formula.api as smf
-import plotly.graph_objects as go
-import statsmodels.api as sm
-from statsmodels.formula.api import ols
-import regex
-from samplics.categorical import CrossTabulation
-from adjustText import adjust_text
+import warnings
+from typing import List, Optional
+
 import matplotlib.pyplot as plt
-import seaborn as sns
+import numpy as np
+import pandas as pd  # type: ignore[import]
+import plotly.graph_objects as go  # type: ignore[import]
+import seaborn as sns  # type: ignore[import]
+import statsmodels.api as sm  # type: ignore[import]
+import statsmodels.formula.api as smf  # type: ignore[import]
+from adjustText import adjust_text  # type: ignore[import]
+from pandas import DataFrame
+from pandas.api.types import is_numeric_dtype  # type: ignore[import]
+from samplics.categorical import CrossTabulation  # type: ignore[import]
+from scipy.stats import chi2_contingency, hypergeom, norm  # type: ignore[import]
+from scipy.stats.distributions import chi2  # type: ignore[import]
+from statsmodels.formula.api import ols  # type: ignore[import]
 
 # gestion de la langue
 langue = "fr"
 
-def description(df):
+
+def description(df: DataFrame) -> DataFrame:
     """
     Description d'un tableau de données.
 
@@ -42,10 +41,10 @@ def description(df):
 
     # gestion de la langue dans le tableau
     if langue == "fr":
-        textes = ["Numérique","Catégorielle"]
+        textes = ["Numérique", "Catégorielle"]
     if langue == "en":
-        textes = ["Numeric","Category"]
-        
+        textes = ["Numeric", "Category"]
+
     for i in df.columns:
         if is_numeric_dtype(df[i]):
             l = [
@@ -88,15 +87,17 @@ def description(df):
             "Standard error",
             "Missing values",
         ]
-    
-    tableau = pd.DataFrame(
+
+    df = pd.DataFrame(
         tableau,
         columns=columns,
     ).set_index(columns[0])
-    return tableau.fillna(" ")
+    return df.fillna(" ")
 
 
-def tri_a_plat(df, variable, poids=False, ro=1):
+def tri_a_plat(
+    df: DataFrame, variable: str, poids: str | None = None, ro: int = 1
+) -> DataFrame:
     """
     Tri à plat pour une variable qualitative.
     Pondération possible.
@@ -123,24 +124,24 @@ def tri_a_plat(df, variable, poids=False, ro=1):
     """
     # Tester le format de l'entrée
     if not isinstance(df, pd.DataFrame):
-        warnings.warn("Attention, ce n'est pas un tableau Pandas", UserWarning)
-        return None
+        raise Exception("Attention, ce n'est pas un tableau Pandas")
+
     if variable not in df.columns:
-        warnings.warn("Attention, la variable n'est pas dans le tableau", UserWarning)
-        return None
+        raise Exception("Attention, la variable n'est pas dans le tableau")
 
     # Cas de données non pondérées
     if not poids:
         effectif = df[variable].value_counts()
         pourcentage = round(100 * df[variable].value_counts(normalize=True), ro)
         tableau = pd.DataFrame([effectif, pourcentage]).T
+
     # Cas des données pondérées
     else:
         effectif = round(df.groupby(variable)[poids].sum(), ro)
         total = effectif.sum()
         pourcentage = round(100 * effectif / total, ro)
         tableau = pd.DataFrame([effectif, pourcentage]).T
-    
+
     # Mise en forme du tableau
     if langue == "fr":
         columns = ["Effectif", "Pourcentage (%)"]
@@ -158,7 +159,7 @@ def tri_a_plat(df, variable, poids=False, ro=1):
     return tableau
 
 
-def verification_recodage(corpus, c1, c2):
+def verification_recodage(tableau: DataFrame, c1: str, c2: str) -> None:
     """
     Comparer une variable recodée avec la variable initiale.
 
@@ -186,18 +187,20 @@ def verification_recodage(corpus, c1, c2):
         return None
 
     # Vérifier que les deux variables sont bien dans le corpus
-    for c in [c1,c2]:
-        if c not in corpus.columns:
+    for c in [c1, c2]:
+        if c not in tableau.columns:
             warnings.warn("La variable %s n'est pas dans le tableau" % c, UserWarning)
             return None
 
     # Vérification s'il y a des valeurs manquantes dans la colonne d'arrivée
-    s = pd.isnull(corpus[c2]).sum()
+    s = pd.isnull(tableau[c2]).sum()
     if s > 0:
-        warnings.warn("Il y a %d valeurs nulles dans la colonne recodée" % s, UserWarning)    
+        warnings.warn(
+            "Il y a %d valeurs nulles dans la colonne recodée" % s, UserWarning
+        )
 
     # renommer et modifier les labels pour éviter les homonymies
-    df = corpus[[c1, c2]].copy()
+    df = tableau[[c1, c2]].copy()
     df[c1] = df[c1].fillna("None").apply(lambda x: str(x) + "(1)")
     df[c2] = df[c2].fillna("None").apply(lambda x: str(x) + "(2)")
 
@@ -244,7 +247,15 @@ def verification_recodage(corpus, c1, c2):
     return None
 
 
-def tableau_croise(df, c1, c2, poids=False, p=False, verb=False, ro=1):
+def tableau_croise(
+    df: DataFrame,
+    c1: str,
+    c2: str,
+    poids: str | None = None,
+    p: bool = False,
+    verb: bool = False,
+    ro: int = 1,
+) -> DataFrame:
     """
     Tableau croisé pour deux variables qualitatives et % par ligne.
 
@@ -277,17 +288,14 @@ def tableau_croise(df, c1, c2, poids=False, p=False, verb=False, ro=1):
 
     # Tester le format de l'entrée
     if not isinstance(df, pd.DataFrame):
-        warnings.warn("Attention, ce n'est pas un tableau Pandas", UserWarning)
-        return None
+        raise Exception("Attention, ce n'est pas un tableau Pandas")
     if c1 not in df.columns or c2 not in df.columns:
-        warnings.warn(
-            "Attention, une des variables n'est pas dans le tableau", UserWarning
-        )
-        return None
+        raise Exception("Attention, une des variables n'est pas dans le tableau")
 
-    pondere = True
     # Si les données ne sont pas pondérées, création d'une pondération unitaire
-    if not poids:
+    if poids:
+        pondere = True
+    else:
         df = df.copy()  # Pour ne pas modifier l'objet
         df["poids"] = 1
         poids = "poids"
@@ -295,7 +303,7 @@ def tableau_croise(df, c1, c2, poids=False, p=False, verb=False, ro=1):
 
     # Tableau effectif avec distribution marginales
     t_absolu = round(
-        pd.crosstab(df[c1], df[c2], df[poids], aggfunc=sum, margins=True), ro
+        pd.crosstab(df[c1], df[c2], values=df[poids], aggfunc="sum", margins=True), ro
     ).fillna(0)
     # Tableau pourcentages par ligne (enlever la colonne totale)
     t_pourcentage = t_absolu.drop("All", axis=1).apply(
@@ -303,7 +311,7 @@ def tableau_croise(df, c1, c2, poids=False, p=False, verb=False, ro=1):
     )
 
     # Mise en forme du tableau avec les pourcentages
-    t = t_absolu.copy()
+    t = t_absolu.copy().astype(str)
     for i in range(0, t_pourcentage.shape[0]):
         for j in range(0, t_pourcentage.shape[1]):
             t.iloc[i, j] = (
@@ -317,20 +325,22 @@ def tableau_croise(df, c1, c2, poids=False, p=False, verb=False, ro=1):
     t["All"] = t["All"].apply(lambda x: "{} (100%)".format(x))
 
     # Traduire All par Total
-    t = t.rename(index={"All":"Total"},columns={"All":"Total"})
-    t_absolu = t_absolu.rename(index={"All":"Total"},columns={"All":"Total"})
-    t_pourcentage = t_pourcentage.rename(index={"All":"Total"},columns={"All":"Total"})
+    t = t.rename(index={"All": "Total"}, columns={"All": "Total"})
+    t_absolu = t_absolu.rename(index={"All": "Total"}, columns={"All": "Total"})
+    t_pourcentage = t_pourcentage.rename(
+        index={"All": "Total"}, columns={"All": "Total"}
+    )
 
     # Calcul du test
-    if pondere: # correction Rao-Scott avec samplics
-        tab = CrossTabulation("count")
+    if pondere:  # correction Rao-Scott avec samplics
+        tab = CrossTabulation()
         tab.tabulate(
-            vars=df[[c1,c2]],
+            vars=df[[c1, c2]].rename(columns={c1: "var1", c2: "var2"}),
             samp_weight=df[poids],
             remove_nan=True,
         )
         val_p = tab.stats["Pearson-Adj"]["p_value"]
-    else: # sans correction
+    else:  # sans correction
         # TO DO : utiliser le calcul de samplics ?
         val_p = chi2_contingency(t_absolu.drop("Total").drop("Total", axis=1))[1]
 
@@ -413,7 +423,14 @@ def tableau_croise_controle(df, cont, c, r, poids=False, chi2=False):
 
 
 def tableau_croise_multiple(
-    df, var_dep, var_indeps, poids=False, chi2=True, axis=0, ss_total=True, contenu = "complet"
+    df,
+    var_dep,
+    var_indeps,
+    poids=False,
+    chi2=True,
+    axis=0,
+    ss_total=True,
+    contenu="complet",
 ):
     """
     Tableau croisé multiples variables.
@@ -483,18 +500,18 @@ def tableau_croise_multiple(
     for i in var_indeps:
         # Tableau croisé pondéré (deux orientations possibles)
         if axis == 0:
-            t_comp,t_ab,t_per,p = tableau_croise(df,i,var_dep,poids,verb=True)
-            
+            t_comp, t_ab, t_per, p = tableau_croise(df, i, var_dep, poids, verb=True)
+
         else:
-            t_comp,t_ab,t_per,p = tableau_croise(df,var_dep,i,poids,verb=True)
+            t_comp, t_ab, t_per, p = tableau_croise(df, var_dep, i, poids, verb=True)
             t_comp = t_comp.T
             t_ab = t_ab.T
             t_per = t_per.T
-            
-        # Sélection du contenu du tableau
+
+        # Sélection du contenu du tableau
         if contenu == "complet":
             t = t_comp
-        elif contenu  == "absolu":
+        elif contenu == "absolu":
             t = t_ab
         elif contenu == "pourcentage":
             t = t_per
@@ -518,9 +535,9 @@ def tableau_croise_multiple(
     # Création d'un DataFrame
     t_all = pd.concat(t_all)
     t_all.columns.name = ""
-    if langue=="fr":
+    if langue == "fr":
         t_all.index.names = ["Variable", "Modalités"]
-    elif langue=="en":
+    elif langue == "en":
         t_all.index.names = ["Variable", "Modalities"]
 
     # Alerter sur les totaux différents
@@ -530,6 +547,7 @@ def tableau_croise_multiple(
         )
 
     return t_all
+
 
 def significativite(x, digits=4):
     """
@@ -651,12 +669,14 @@ def tableau_reg_logistique(regression, data, var_indeps, sig=True):
         else:
             if "[T." in i:  # Si c'est une variable catégorielle
                 tmp = i.split("[T.")
-                var = tmp[0].replace("Q(\'","").replace("\')","") #enlever la décoration
+                var = (
+                    tmp[0].replace("Q('", "").replace("')", "")
+                )  # enlever la décoration
                 new_index.append(
                     (var_indeps_unique[var], tmp[1][0:-1])
                 )  # gérer l'absence dans le dictionnaire
             else:
-                i = i.replace("Q(\'","").replace("\')","") #enlever la décoration
+                i = i.replace("Q('", "").replace("')", "")  # enlever la décoration
                 new_index.append((var_indeps_unique[i], "numérique"))
 
     # Réintégration de l'Intercept dans le tableau
@@ -665,7 +685,7 @@ def tableau_reg_logistique(regression, data, var_indeps, sig=True):
 
     # Réindexation du tableau
     if langue == "fr":
-        names=["Variable", "Modalité"]
+        names = ["Variable", "Modalité"]
     elif langue == "en":
         names = ["Variable", "Modality"]
     new_index = pd.MultiIndex.from_tuples(new_index, names=names)
@@ -691,7 +711,7 @@ def construction_formule(dep, indep):
     str : formule de régression
 
     """
-    return dep + " ~ " + " + ".join(["Q(\'%s\')"%i for i in indep])
+    return dep + " ~ " + " + ".join(["Q('%s')" % i for i in indep])
 
 
 def regression_logistique(df, dep_var, var_indeps, poids=False, table_only=True):
@@ -803,14 +823,14 @@ def vers_excel(tables, file):
         print("Le fichier a créer n'a pas la bonne extension")
         return None
 
-    writer = pd.ExcelWriter(file, engine='openpyxl', mode='w')
+    writer = pd.ExcelWriter(file, engine="openpyxl", mode="w")
     writer.book.create_sheet("Résultats")
     worksheet = writer.book.worksheets[0]
     writer.sheets["Résultats"] = worksheet
     curseur = 0  # ligne d'écriture
     # Boucle sur les tableaux
     for title in tables:
-        worksheet.cell(curseur + 1,1,title)
+        worksheet.cell(curseur + 1, 1, title)
         tables[title].to_excel(writer, sheet_name="Résultats", startrow=curseur + 2)
         curseur += 2 + tables[title].shape[0] + 4
     writer.book.save(file)
@@ -856,10 +876,8 @@ def ecart_type_pondere(colonne, poids):
     return math.sqrt(variance)
 
 
-
-
 def _escape_quotes(variable: str) -> str:
-    """ 
+    """
     Complète la fonction Q() de patsy pour échapper les caractères problématiques
     Parameters
     ----------
@@ -875,13 +893,19 @@ def _escape_quotes(variable: str) -> str:
     return variable.replace('"', '\\"')
 
 
-def catdes(df: pd.DataFrame, vardep: str, varindep: List[str] = None,
-           proba: float = 0.05, poids: Optional[str] = False, mod: bool = False):
+def catdes(
+    df: pd.DataFrame,
+    vardep: str,
+    varindep: List[str] | None = None,
+    proba: float = 0.05,
+    poids: Optional[str] | None = None,
+    mod: bool = False,
+):
     """
     Calcule la relation entre une variable catégorielle et plusieurs variables.
     Implémentation de la fonction catdes de FactoMineR.
     Attention : encore en version BETA
-    
+
     Parameters
     ----------
     df : DataFrame
@@ -914,12 +938,12 @@ def catdes(df: pd.DataFrame, vardep: str, varindep: List[str] = None,
     Passage en Python initié avec Inno3.
     Résultats testés comparativement avec R qui correspondent.
     Il manque encore les tests.
-    
+
     """
-   
+
     # Copie du tableau
     df = df.copy()
-    
+
     # Variable dépendante catégorielle
     if is_numeric_dtype(df[vardep]):
         print("Attention, la variable dépendante est numérique")
@@ -930,8 +954,12 @@ def catdes(df: pd.DataFrame, vardep: str, varindep: List[str] = None,
     cols_cat = []
     if not varindep:
         # Cas où les variables ne sont pas proposées
-        cols_cat = [c for c in df.columns if not is_numeric_dtype(df[c]) and c != vardep] # sans la variable dépendante
-        cols_num = [c for c in df.columns if is_numeric_dtype(df[c]) and c != poids] # sans la pondération
+        cols_cat = [
+            c for c in df.columns if not is_numeric_dtype(df[c]) and c != vardep
+        ]  # sans la variable dépendante
+        cols_num = [
+            c for c in df.columns if is_numeric_dtype(df[c]) and c != poids
+        ]  # sans la pondération
     else:
         # Cas où les variables sont proposées
         for i in varindep:
@@ -941,78 +969,83 @@ def catdes(df: pd.DataFrame, vardep: str, varindep: List[str] = None,
                 cols_cat.append(i)
 
     # Pondération à 1 si pas de pondération
-    if not poidq :
-        df["poids"] = [1]*len(df)
+    if not poids:
+        df["poids"] = [1] * len(df)
         poids = "poids"
-    
+
     # Calcul de l'association par variables
-    
+
     # Cas des variables catégorielles
-    
+
     tableau_cat_var = []
     var_cat_corr = []
 
     # Pour chaque variable
     for v in cols_cat:
-
         # Calcul du tableau croisé
-        t,a,p = tableau_croise(df,vardep,v,poids=poids,verb=True)
-        a = a.drop(index="All",columns="All")
-        
+        t, a, p, p_val = tableau_croise(df, vardep, v, poids=poids, verb=True)
+        # a = a.drop(index="All", columns="All")
+
         # Calcul du chi2
-        k,p,f,t = chi2_contingency(a,correction=False)
-        
+        k, p, f, t = chi2_contingency(a, correction=False)
+
         # Ajout aux résultats si significatif
         if p < proba:
-            tableau_cat_var.append([v,p,f])
+            tableau_cat_var.append([v, p, f])
             var_cat_corr.append(v)
-    
+
     # Mettre en forme le tableau
-    tableau_cat_var = pd.DataFrame(tableau_cat_var,
-                             columns = [vardep,"p","df"]
-                            ).set_index(vardep).sort_values("p")
-    
+    tableau_cat_var = (
+        pd.DataFrame(tableau_cat_var, columns=[vardep, "p", "df"])
+        .set_index(vardep)
+        .sort_values("p")
+    )
 
     # Cas des variables numériques
-    
+
     tableau_num_var = []
     var_num_corr = []
-    
+
     # Pour chaque variable numérique
-    for v in cols_num:        
+    for v in cols_num:
         # Calcul d'une ANOVA
         # Utilisation de Q() pour échapper les variables
         #  See https://patsy.readthedocs.io/en/latest/builtins-reference.html#patsy.builtins.Q
-        model = ols(f"Q(\"{_escape_quotes(v)}\") ~ C(Q(\"{_escape_quotes(vardep)}\"))", data=df).fit()
+        model = ols(
+            f'Q("{_escape_quotes(v)}") ~ C(Q("{_escape_quotes(vardep)}"))', data=df
+        ).fit()
         aov_table = sm.stats.anova_lm(model, typ=2)
-        
+
         # Paramètre de l'association
-        eta2 = aov_table.iloc[0,0]/aov_table.iloc[:,0].sum()
-        p = aov_table.iloc[0,3]
+        eta2 = aov_table.iloc[0, 0] / aov_table.iloc[:, 0].sum()
+        p = aov_table.iloc[0, 3]
 
         # Ajout aux résultats si significatif
         if p <= proba:
-            tableau_num_var.append([v,eta2,p])
+            tableau_num_var.append([v, eta2, p])
             var_num_corr.append(v)
-        
+
     # Mettre en forme le tableau
-    tableau_num_var = pd.DataFrame(tableau_num_var,
-                        columns = [vardep,"Eta 2","p-value"]).set_index(vardep)
+    tableau_num_var = pd.DataFrame(
+        tableau_num_var, columns=[vardep, "Eta 2", "p-value"]
+    ).set_index(vardep)
 
     # Fin de la fonction si mod = False
-    if not mod:   
-        return tableau_cat_var,tableau_num_var
-    
-    # Si mod = True, associations avec les modalités 
-    
+    if not mod:
+        return tableau_cat_var, tableau_num_var
+
+    # Si mod = True, associations avec les modalités
+
     # Cas des variables catégorielles
-    
+
     # Création des colonnes 0/1 par modalités
     tab_dep = pd.get_dummies(df[[vardep]])
     tab_ind = pd.get_dummies(df[var_cat_corr])
-    tab_all = pd.get_dummies(df[list(set([vardep]+var_cat_corr+[poids]))]) #assurer l'unicité des colonnes
+    tab_all = pd.get_dummies(
+        df[list(set([vardep] + var_cat_corr + [poids]))]
+    )  # assurer l'unicité des colonnes
     n = len(df)
-    
+
     # Boucle sur les variables
     tableau_cat_mod = {}
     for categorie in tab_dep.columns:
@@ -1020,86 +1053,132 @@ def catdes(df: pd.DataFrame, vardep: str, varindep: List[str] = None,
         for modalite in tab_ind.columns:
             # Calcul d'un test hypergéométrique
             # Arrondi car pondération
-            n_kj = round((tab_all[tab_all[categorie]==1][modalite] * tab_all[tab_all[categorie]==1][poids]).sum())
-            n_j = round((tab_all[modalite]*tab_all[poids]).sum())
-            n_k = round((tab_all[categorie]*tab_all[poids]).sum())
+            n_kj = round(
+                (
+                    tab_all[tab_all[categorie] == 1][modalite]
+                    * tab_all[tab_all[categorie] == 1][poids]
+                ).sum()
+            )
+            n_j = round((tab_all[modalite] * tab_all[poids]).sum())
+            n_k = round((tab_all[categorie] * tab_all[poids]).sum())
             # Test dans catdes de FactomineR
             # 2 * P(N >= n_kj-1) + P(n_kj)
-            prob_inf2 = hypergeom.cdf(n_kj-1,n,n_j,n_k)*2 + hypergeom.pmf(n_kj,n,n_j,n_k)
+            prob_inf2 = hypergeom.cdf(n_kj - 1, n, n_j, n_k) * 2 + hypergeom.pmf(
+                n_kj, n, n_j, n_k
+            )
             # 2 * P(N < n_kj) + P(n_kj)
-            prob_sup2 = (1 - hypergeom.cdf(n_kj,n,n_j,n_k))*2 + hypergeom.pmf(n_kj,n,n_j,n_k)
+            prob_sup2 = (1 - hypergeom.cdf(n_kj, n, n_j, n_k)) * 2 + hypergeom.pmf(
+                n_kj, n, n_j, n_k
+            )
             # Prendre la valeur minimale
-            p_min2 = min(prob_inf2,prob_sup2)
+            p_min2 = min(prob_inf2, prob_sup2)
             # Calcul de la valeur test à partir d'une loi normale unitaire
-            V = (1-2*int(n_kj/n_j>n_k/n))*norm.ppf(p_min2/2)
+            V = (1 - 2 * int(n_kj / n_j > n_k / n)) * norm.ppf(p_min2 / 2)
             # Calcul du chi2 sur le tableau croisé 2x2
-            t,a,p = tableau_croise(tab_all,categorie,modalite,poids,verb=True)
-            a = a.drop(index="All",columns="All")
-            k,p_chi2,f,t = chi2_contingency(a,correction=False)
+            t, a, p, p_val = tableau_croise(
+                tab_all, categorie, modalite, poids, verb=True
+            )
+            # a = a.drop(index="All", columns="All")
+            k, p_chi2, f, t = chi2_contingency(a, correction=False)
             #  Ajout aux résultats si significatif
-            if p_min2/2 < proba:
-                res_cat.append([modalite,
-                                round(100*n_kj/n_j,2),
-                                round(100*n_kj/n_k,2),
-                                round(100*n_j/n,2),
-                                round(V,2),
-                                p_min2/2, 
-                                p_chi2])
-                
+            if p_min2 / 2 < proba:
+                res_cat.append(
+                    [
+                        modalite,
+                        round(100 * n_kj / n_j, 2),
+                        round(100 * n_kj / n_k, 2),
+                        round(100 * n_j / n, 2),
+                        round(V, 2),
+                        p_min2 / 2,
+                        p_chi2,
+                    ]
+                )
+
         # Mise en forme du tableau
-        res_cat = pd.DataFrame(res_cat,
-                     columns=["var",
-                              "Cla/Mod (n_kj/n_j)",
-                              "Mod/Cla (n_kj/n_k)",
-                              "Proportion globale (n_j/n)",
-                              "Valeur test","p hyper",
-                              "p chi2"]).sort_values("Valeur test",
-                                    ascending=False,
-                                    key=abs).set_index("var")
-        tableau_cat_mod[categorie]= res_cat
-        
+        res_cat = (
+            pd.DataFrame(
+                res_cat,
+                columns=[
+                    "var",
+                    "Cla/Mod (n_kj/n_j)",
+                    "Mod/Cla (n_kj/n_k)",
+                    "Proportion globale (n_j/n)",
+                    "Valeur test",
+                    "p hyper",
+                    "p chi2",
+                ],
+            )
+            .sort_values("Valeur test", ascending=False, key=abs)
+            .set_index("var")
+        )
+        tableau_cat_mod[categorie] = res_cat
+
     # Mise en forme final du tableau
-    tableau_cat_mod = pd.concat(tableau_cat_mod)
-        
+    # tableau_cat_mod = pd.concat(tableau_cat_mod)
+    tableau_cat_mod = pd.concat(
+        {
+            tab: tableau_cat_mod[tab]
+            for tab in tableau_cat_mod
+            if not (tableau_cat_mod[tab]).empty
+        }
+    )
 
     # Cas des variables numériques
 
     var_dep_mod = df[vardep].unique()
-    tableau_num_mod = {i:[] for i in var_dep_mod}
+    tableau_num_mod = {i: [] for i in var_dep_mod}
 
     # Pour chaque variable
     for v in var_num_corr:
-
         # Calcul de paramètres
-        moy_mod = df.groupby(vardep).apply(lambda x : moyenne_ponderee(x[v],x[poids]))
+        moy_mod = df.groupby(vardep).apply(lambda x: moyenne_ponderee(x[v], x[poids]))
         n_mod = df.groupby(vardep)[v].count()
         n = sum(n_mod)
-        sd_mod = df.groupby(vardep).apply(lambda x : ecart_type_pondere(x[v],x[poids]))
-        moy = moyenne_ponderee(df[v],df[poids])
-        sd =  ecart_type_pondere(df[v],df[poids])
+        sd_mod = df.groupby(vardep).apply(lambda x: ecart_type_pondere(x[v], x[poids]))
+        moy = moyenne_ponderee(df[v], df[poids])
+        sd = ecart_type_pondere(df[v], df[poids])
 
         # Pour chaque modalités de la variable dépendante
         for m in var_dep_mod:
             # Calcul d'un test
-            v_test = (moy_mod.loc[m]-moy)/sd*math.sqrt(n_mod.loc[m])/math.sqrt((n-n_mod.loc[m])/(n-1))
-            p_value =  (1-norm.cdf(abs(v_test)))*2
+            v_test = (
+                (moy_mod.loc[m] - moy)
+                / sd
+                * math.sqrt(n_mod.loc[m])
+                / math.sqrt((n - n_mod.loc[m]) / (n - 1))
+            )
+            p_value = (1 - norm.cdf(abs(v_test))) * 2
 
             # Ajout à la sortie si significatif au seuil
             if p_value <= proba:
-                tableau_num_mod[m].append([v, v_test, p_value, moy_mod.loc[m],
-                                           moy,sd_mod.loc[m],sd])
-                
+                tableau_num_mod[m].append(
+                    [v, v_test, p_value, moy_mod.loc[m], moy, sd_mod.loc[m], sd]
+                )
+
     # Mise en forme des tableaux
     # Ce n'est pas très joli ...
-    tableau_num_mod = pd.concat({i:pd.DataFrame(tableau_num_mod[i],
-                columns = ["var","Valeur test","p-value","Moy mod",
-                       "Moy glob","Std mod","Std glob"]
-                         ).set_index("var").sort_values("Valeur test",
-                         ascending=False,key=abs) for i in tableau_num_mod
-          })
+    tableau_num_mod = pd.concat(
+        {
+            i: pd.DataFrame(
+                tableau_num_mod[i],
+                columns=[
+                    "var",
+                    "Valeur test",
+                    "p-value",
+                    "Moy mod",
+                    "Moy glob",
+                    "Std mod",
+                    "Std glob",
+                ],
+            )
+            .set_index("var")
+            .sort_values("Valeur test", ascending=False, key=abs)
+            for i in tableau_num_mod
+        }
+    )
 
     # Retourner les tableaux
-    return tableau_cat_var,tableau_num_var,tableau_cat_mod,tableau_num_mod
+    return tableau_cat_var, tableau_num_var, tableau_cat_mod, tableau_num_mod
 
 
 # ----------------------------------------------------------------------
@@ -1152,10 +1231,8 @@ def cramers_corrected_stat(confusion_matrix):
     return np.sqrt(phi2corr / min((kcorr - 1), (rcorr - 1)))
 
 
-def plot_acm(model, data, x=0, y=1, dims = (11, 8),
-             keep_prefix=True,
-             adjust_labels=True):   
-    '''
+def plot_acm(model, data, x=0, y=1, dims=(11, 8), keep_prefix=True, adjust_labels=True):
+    """
     Parameters
     ----------
     model : prince.mca.MCA
@@ -1174,14 +1251,14 @@ def plot_acm(model, data, x=0, y=1, dims = (11, 8),
         en: Plot size. (11, 8) by default.
         fr: Taille du graphique. (11, 8) par défaut.
     keep_prefix : boolean, optional
-        en: To prepend (or not) the name of the variable to the value (e.g. if set to True, will display something like "COLOR_purple", 
-        otherwise will display "purple").        
+        en: To prepend (or not) the name of the variable to the value (e.g. if set to True, will display something like "COLOR_purple",
+        otherwise will display "purple").
         fr: Indique si le texte affiché à côté de chaque point projeté contient un préfixe contenant le nom de la variable.
-        Si défini à "False", seul l'intitulé de la modalité apparait.        
+        Si défini à "False", seul l'intitulé de la modalité apparait.
     adjust_text : boolean, optional
         en: Preventing text from overlapping if set to True.
         fr: Si défini à "True", réorganise automatiquement les labels de chaque point de manière à ce qu'ils ne se chevauchent pas.
-        
+
     Returns
     -------
     plot : matplotlib.axes._subplots.AxesSubplot
@@ -1190,59 +1267,60 @@ def plot_acm(model, data, x=0, y=1, dims = (11, 8),
     Notes
     -------
     Proposé et codé par Jean-Baptiste Bertrand
-    '''
+    """
     variables = data.columns
     # variance = model.eigenvalues_summary
     variance = model.percentage_of_variance_
     coord = model.column_coordinates(data)
-    #coord contient les coordonnées de chaque modalité sur chaque axe factoriel
-    #on ajoute une colonne "variable" pour le lien modalités/variable
+    # coord contient les coordonnées de chaque modalité sur chaque axe factoriel
+    # on ajoute une colonne "variable" pour le lien modalités/variable
     coord["variable"] = ""
     new_index = []
-        
+
     for i in range(0, len(coord)):
         row = coord.iloc[i]
         var_name = row.name
         for variable in variables:
             values = data[variable].dropna().unique()
-            for value in values:                
-                comb= "_".join([variable, value])
+            for value in values:
+                comb = "_".join([variable, value])
                 if comb == var_name:
                     coord.iloc[i, coord.columns.get_loc("variable")] = variable
-                    new_index.append(coord.iloc[i].name.replace(variable+"_", ""))
-    if keep_prefix == False:
+                    new_index.append(coord.iloc[i].name.replace(variable + "_", ""))
+    if not keep_prefix:
         coord.index = new_index
-    #On représente ensuite les modalités sous forme d'un nuage de points
+    # On représente ensuite les modalités sous forme d'un nuage de points
     sns.set_style("whitegrid")
     fig, ax = plt.subplots(figsize=dims)
-    plot = sns.scatterplot(x=coord[x], 
-                           y=coord[y],
-                           hue=coord["variable"],
-                           ax=ax,
-                           )
-    #on modifie l'intitulé des axex
-    ax.set_xlabel(f"Dimension {str(x)} ({round(variance[x],1)} %)" )
-    ax.set_ylabel(f"Dimension {str(y)} ({round(variance[y],1)} %)" )
-    #on ajoute des lignes pointillées aux origines, pour faciliter l'analyse
-    plot.axhline(y = 0, color = 'black', linestyle = '--', linewidth = 0.5)
-    plot.axvline(x = 0, color = 'black', linestyle = '--', linewidth = 0.5)
-    
-    #on ajoute l'intitulé des points
+    plot = sns.scatterplot(
+        x=coord[x],
+        y=coord[y],
+        hue=coord["variable"],
+        ax=ax,
+    )
+    # on modifie l'intitulé des axex
+    ax.set_xlabel(f"Dimension {str(x)} ({round(variance[x], 1)} %)")
+    ax.set_ylabel(f"Dimension {str(y)} ({round(variance[y], 1)} %)")
+    # on ajoute des lignes pointillées aux origines, pour faciliter l'analyse
+    plot.axhline(y=0, color="black", linestyle="--", linewidth=0.5)
+    plot.axvline(x=0, color="black", linestyle="--", linewidth=0.5)
+
+    # on ajoute l'intitulé des points
     txts = []
-    for line in range(0, coord.shape[0]):        
-        txt = plot.text(coord[x][line]+0.03,
-                  coord[y][line],
-                  coord.index[line],
-                 
-                 )
+    for line in range(0, coord.shape[0]):
+        txt = plot.text(
+            coord[x][line] + 0.03,
+            coord[y][line],
+            coord.index[line],
+        )
         txts.append(txt)
     if adjust_labels == True:
         adjust_text(txts)
 
-    #derniers réglages : 
-    #on supprime l'encadré autour du graphique
-    #on déplace la légende à l'extérieur du graphique
+    # derniers réglages :
+    # on supprime l'encadré autour du graphique
+    # on déplace la légende à l'extérieur du graphique
     sns.despine()
     sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
-    
+
     return plot
