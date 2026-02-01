@@ -357,7 +357,7 @@ def tableau_croise(
     return t
 
 
-def tableau_croise_controle(df, cont, c, r, poids=False, chi2=False):
+def tableau_croise_controle(df, cont, c, r, poids=False, chi2=False, ro=1):
     """
     Tableau croisé avec variable de contrôle.
 
@@ -403,7 +403,7 @@ def tableau_croise_controle(df, cont, c, r, poids=False, chi2=False):
     mod = df[cont].unique()  # modalités de contrôle
     for i in mod:
         d = df[df[cont] == i]  # sous-ensemble
-        t, p = tableau_croise(d, c, r, poids, p=True)
+        t, p = tableau_croise(d, c, r, poids, p=True, ro=ro)
         # Mettre Total plutôt que All dans le tableau
         t.columns = list(t.columns)[:-1] + ["Total"]
         t.index = list(t.index)[:-1] + ["Total"]
@@ -431,6 +431,8 @@ def tableau_croise_multiple(
     axis=0,
     ss_total=True,
     contenu="complet",
+    ro=2,
+    scientific_notation=False,
 ):
     """
     Tableau croisé multiples variables.
@@ -454,6 +456,10 @@ def tableau_croise_multiple(
         présence de sous totaux
     contenu : str, optionnal
         données complètes, brutes ou pourcentages
+    ro : int, optionnal
+        arrondi des données
+    scientific_notation : bool, optionnal
+        utiliser la notation scientifique pour la pvalue
 
     Returns
     -------
@@ -500,10 +506,14 @@ def tableau_croise_multiple(
     for i in var_indeps:
         # Tableau croisé pondéré (deux orientations possibles)
         if axis == 0:
-            t_comp, t_ab, t_per, p = tableau_croise(df, i, var_dep, poids, verb=True)
+            t_comp, t_ab, t_per, p = tableau_croise(
+                df, i, var_dep, poids, verb=True, ro=ro
+            )
 
         else:
-            t_comp, t_ab, t_per, p = tableau_croise(df, var_dep, i, poids, verb=True)
+            t_comp, t_ab, t_per, p = tableau_croise(
+                df, var_dep, i, poids, verb=True, ro=ro
+            )
             t_comp = t_comp.T
             t_ab = t_ab.T
             t_per = t_per.T
@@ -523,12 +533,15 @@ def tableau_croise_multiple(
         if not ss_total:
             t = t.drop("Total")
 
-        dis = tri_a_plat(df, i, poids=poids)
+        dis = tri_a_plat(df, i, poids=poids, ro=ro)
 
         check_total.append(t.iloc[-1, -1])
         t["Distribution"] = dis[dis.columns[1]].apply(lambda x: "{}%".format(x))
         if chi2:
-            t_all[var_indeps[i] + " (p = %.03f)" % p] = t
+            if scientific_notation:
+                t_all[f"{var_indeps[i]} (p = {p:.16e})"] = t
+            else:
+                t_all[f"{var_indeps[i]} (p = {p:.3e})"] = t
         else:
             t_all[var_indeps[i]] = t
 
@@ -583,7 +596,9 @@ def significativite(x, digits=4):
     return str(x)
 
 
-def tableau_reg_logistique(regression, data, var_indeps, sig=True):
+def tableau_reg_logistique(
+    regression, data, var_indeps, sig=True, ro=2, scientific_notation=False
+) -> DataFrame:
     """
     Mise en forme des résultats de la régression logistique.
     Lecture pour les SHS.
@@ -598,6 +613,10 @@ def tableau_reg_logistique(regression, data, var_indeps, sig=True):
         liste des colonnes de la régression
     sig : bool, optionnal
         faire apparaître la significativité
+    ro : int, optionnal
+        arrondi des données
+    scientific_notation : bool, optionnal
+        utiliser la notation scientifique pour la pvalue
 
     Returns
     -------
@@ -629,8 +648,10 @@ def tableau_reg_logistique(regression, data, var_indeps, sig=True):
 
     # Mise en forme du tableau général OR /
     table = np.exp(regression.conf_int())
-    table["OR"] = round(np.exp(regression.params), 2)
-    table["p"] = round(regression.pvalues, 3)
+    table["OR"] = round(np.exp(regression.params), ro)
+    table["p"] = (
+        round(regression.pvalues, ro) if not scientific_notation else regression.pvalues
+    )
     table["IC 95%"] = table.apply(
         lambda x: "%.2f [%.2f-%.2f]" % (x["OR"], x[0], x[1]), axis=1
     )
