@@ -2,7 +2,7 @@
 
 import math
 import warnings
-from typing import List, Optional
+from typing import List
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -42,7 +42,13 @@ def description(df: DataFrame) -> DataFrame:
     # gestion de la langue dans le tableau
     if langue == "fr":
         textes = ["Numérique", "Catégorielle"]
-    if langue == "en":
+    elif langue == "en":
+        textes = ["Numeric", "Category"]
+    else:
+        warnings.warn(
+            "Langue non gérée, les types de variables ne seront pas indiqués",
+            UserWarning,
+        )
         textes = ["Numeric", "Category"]
 
     for i in df.columns:
@@ -77,7 +83,7 @@ def description(df: DataFrame) -> DataFrame:
             "Écart-type",
             "Valeurs manquantes",
         ]
-    if langue == "en":
+    elif langue == "en":
         columns = [
             "Variable",
             "Type",
@@ -124,10 +130,12 @@ def tri_a_plat(
     """
     # Tester le format de l'entrée
     if not isinstance(df, pd.DataFrame):
-        raise Exception("Attention, ce n'est pas un tableau Pandas")
+        warnings.warn("Attention, ce n'est pas un tableau Pandas", UserWarning)
+        return None
 
     if variable not in df.columns:
-        raise Exception("Attention, la variable n'est pas dans le tableau")
+        warnings.warn("Attention, la variable n'est pas dans le tableau", UserWarning)
+        return None
 
     # Cas de données non pondérées
     if not poids:
@@ -288,9 +296,13 @@ def tableau_croise(
 
     # Tester le format de l'entrée
     if not isinstance(df, pd.DataFrame):
-        raise Exception("Attention, ce n'est pas un tableau Pandas")
+        warnings.warn("Attention, ce n'est pas un tableau Pandas", UserWarning)
+        return None
     if c1 not in df.columns or c2 not in df.columns:
-        raise Exception("Attention, une des variables n'est pas dans le tableau")
+        warnings.warn(
+            "Attention, une des variables n'est pas dans le tableau", UserWarning
+        )
+        return None
 
     # Si les données ne sont pas pondérées, création d'une pondération unitaire
     if poids:
@@ -346,7 +358,6 @@ def tableau_croise(
 
     # Retour des tableaux non mis en forme
     if verb:
-        val_p = chi2_contingency(t_absolu.drop("Total").drop("Total", axis=1))[1]
         return t, t_absolu, t_pourcentage, val_p
 
     # Retour du tableau avec la p-value
@@ -404,9 +415,6 @@ def tableau_croise_controle(df, cont, c, r, poids=False, chi2=False, ro=1):
     for i in mod:
         d = df[df[cont] == i]  # sous-ensemble
         t, p = tableau_croise(d, c, r, poids, p=True, ro=ro)
-        # Mettre Total plutôt que All dans le tableau
-        t.columns = list(t.columns)[:-1] + ["Total"]
-        t.index = list(t.index)[:-1] + ["Total"]
 
         # Construire le tableau avec ou sans le chi2
         if chi2:
@@ -476,7 +484,7 @@ def tableau_croise_multiple(
     if not isinstance(df, pd.DataFrame):
         warnings.warn("Attention, ce n'est pas un tableau Pandas", UserWarning)
         return None
-    if (type(var_indeps) != list) and (type(var_indeps) != dict):
+    if not isinstance(var_indeps, (list, dict)):
         warnings.warn(
             "Les variables ne sont pas renseignées sous le bon format", UserWarning
         )
@@ -494,7 +502,7 @@ def tableau_croise_multiple(
             return None
 
     # Noms des variables
-    if type(var_indeps) == list:
+    if isinstance(var_indeps, list):
         var_indeps = {i: i for i in var_indeps}
 
     t_all = {}
@@ -526,7 +534,7 @@ def tableau_croise_multiple(
         elif contenu == "pourcentage":
             t = t_per
         else:
-            print("Erreur dans le format du tableau")
+            warnings.warn("Erreur dans le format du tableau", UserWarning)
             return None
 
         # Enlever les sous-totaux si besoin
@@ -556,7 +564,8 @@ def tableau_croise_multiple(
     # Alerter sur les totaux différents
     if len(set(check_total)) != 1:
         warnings.warn(
-            "Attention, les totaux par tableaux sont différents (valeurs manquantes, UserWarning)"
+            "Attention, les totaux par tableaux sont différents (valeurs manquantes)",
+            UserWarning,
         )
 
     return t_all
@@ -759,10 +768,11 @@ def regression_logistique(df, dep_var, var_indeps, poids=False, table_only=True)
 
     # S'il n'y a pas de pondération définie
     if not poids:
+        df = df.copy()
         df["poids"] = 1
         poids = "poids"
     # Mettre les variables indépendantes en dictionnaire si nécessaire
-    if type(var_indeps) == list:
+    if isinstance(var_indeps, list):
         var_indeps = {i: i for i in var_indeps}
 
     # Construction de la formule
@@ -831,17 +841,17 @@ def vers_excel(tables, file):
     """
 
     # Transformation de l'entrée en dictionnaire
-    if type(tables) == pd.DataFrame:
+    if isinstance(tables, pd.DataFrame):
         tables = {"": tables}
-    if type(tables) == list:
+    if isinstance(tables, list):
         tables = {"Tableau %d" % (i + 1): j for i, j in enumerate(tables)}
-    if type(tables) != dict:
-        print("Erreur dans le format des données rentrées")
+    if not isinstance(tables, dict):
+        warnings.warn("Erreur dans le format des données rentrées", UserWarning)
         return None
 
     # Ouverture d'un fichier excel
-    if (not ".xlsx" in file) or (not ".xls" in file):
-        print("Le fichier a créer n'a pas la bonne extension")
+    if not (file.endswith(".xlsx") or file.endswith(".xls")):
+        warnings.warn("Le fichier à créer n'a pas la bonne extension", UserWarning)
         return None
 
     writer = pd.ExcelWriter(file, engine="openpyxl", mode="w")
@@ -919,7 +929,7 @@ def catdes(
     vardep: str,
     varindep: List[str] | None = None,
     proba: float = 0.05,
-    poids: Optional[str] | None = None,
+    poids: str | None = None,
     mod: bool = False,
 ):
     """
@@ -967,7 +977,7 @@ def catdes(
 
     # Variable dépendante catégorielle
     if is_numeric_dtype(df[vardep]):
-        print("Attention, la variable dépendante est numérique")
+        warnings.warn("Attention, la variable dépendante est numérique", UserWarning)
         return None
 
     # Construction de la liste de variables
@@ -1005,7 +1015,7 @@ def catdes(
     for v in cols_cat:
         # Calcul du tableau croisé
         t, a, p, p_val = tableau_croise(df, vardep, v, poids=poids, verb=True)
-        # a = a.drop(index="All", columns="All")
+        a = a.drop(index="Total").drop(columns="Total")
 
         # Calcul du chi2
         k, p, f, t = chi2_contingency(a, correction=False)
@@ -1099,7 +1109,7 @@ def catdes(
             t, a, p, p_val = tableau_croise(
                 tab_all, categorie, modalite, poids, verb=True
             )
-            # a = a.drop(index="All", columns="All")
+            a = a.drop(index="Total").drop(columns="Total")
             k, p_chi2, f, t = chi2_contingency(a, correction=False)
             #  Ajout aux résultats si significatif
             if p_min2 / 2 < proba:
