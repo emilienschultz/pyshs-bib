@@ -265,7 +265,6 @@ def tableau_croise(
     p: bool = False,
     verb: bool = False,
     arrondir: int = 1,
-    notationscientifique: bool = False,
 ) -> DataFrame:
     """
     Tableau croisé pour deux variables qualitatives et % par ligne.
@@ -285,8 +284,6 @@ def tableau_croise(
         tableaux complet, absolu, pourcentages, p-value
     arrondir : int, optionnel
         nombre de décimales (défaut : 1)
-    notationscientifique : bool, optionnel
-        notation scientifique pour les p-values (défaut : False)
 
     Returns
     -------
@@ -320,7 +317,8 @@ def tableau_croise(
 
     # Tableau effectif avec distribution marginales
     t_absolu = round(
-        pd.crosstab(df[c1], df[c2], values=df[poids], aggfunc="sum", margins=True), arrondir
+        pd.crosstab(df[c1], df[c2], values=df[poids], aggfunc="sum", margins=True),
+        arrondir,
     ).fillna(0)
     # Tableau pourcentages par ligne (enlever la colonne totale)
     t_pourcentage = t_absolu.drop("All", axis=1).apply(
@@ -373,7 +371,9 @@ def tableau_croise(
     return t
 
 
-def tableau_croise_controle(df, cont, c, r, poids=False, chi2=False, arrondir=1, notationscientifique=False):
+def tableau_croise_controle(
+    df, cont, c, r, poids=False, chi2=False, arrondir=1, proba_simplifiee=False
+):
     """
     Tableau croisé avec variable de contrôle.
 
@@ -389,8 +389,8 @@ def tableau_croise_controle(df, cont, c, r, poids=False, chi2=False, arrondir=1,
         poids optionnel
     arrondir : int, optionnel
         nombre de décimales (défaut : 1)
-    notationscientifique : bool, optionnel
-        notation scientifique pour les p-values (défaut : False)
+    proba_simplifiee : bool, optionnel
+        simplifier les probas (défaut : False)
 
     Returns
     -------
@@ -427,10 +427,10 @@ def tableau_croise_controle(df, cont, c, r, poids=False, chi2=False, arrondir=1,
 
         # Construire le tableau avec ou sans le chi2
         if chi2:
-            if notationscientifique:
-                tab[i + " (p = %.16e)" % p] = t
+            if proba_simplifiee:
+                tab[i + " " + significativite(p, arrondir=arrondir, value=False)] = t
             else:
-                tab[i + " (p = %.3f)" % p] = t
+                tab[i + " (p = %.1e)" % p] = t
         else:
             tab[i] = t
 
@@ -452,7 +452,7 @@ def tableau_croise_multiple(
     ss_total=True,
     contenu="complet",
     arrondir=2,
-    notationscientifique=False,
+    proba_simplifiee=False,
 ):
     """
     Tableau croisé multiples variables.
@@ -478,8 +478,8 @@ def tableau_croise_multiple(
         données complètes, brutes ou pourcentages
     arrondir : int, optionnel
         nombre de décimales (défaut : 2)
-    notationscientifique : bool, optionnel
-        notation scientifique pour les p-values (défaut : False)
+    proba_simplifiee : bool, optionnel
+        simplifier les probas (défaut : False)
 
     Returns
     -------
@@ -558,10 +558,12 @@ def tableau_croise_multiple(
         check_total.append(t.iloc[-1, -1])
         t["Distribution"] = dis[dis.columns[1]].apply(lambda x: "{}%".format(x))
         if chi2:
-            if notationscientifique:
-                t_all[f"{var_indeps[i]} (p = {p:.16e})"] = t
+            if proba_simplifiee:
+                t_all[
+                    f"{var_indeps[i]} {significativite(p, arrondir=arrondir, value=False)}"
+                ] = t
             else:
-                t_all[f"{var_indeps[i]} (p = {p:.3e})"] = t
+                t_all[f"{var_indeps[i]} (p = {p:.1e})"] = t
         else:
             t_all[var_indeps[i]] = t
 
@@ -583,7 +585,7 @@ def tableau_croise_multiple(
     return t_all
 
 
-def significativite(x, arrondir=4):
+def significativite(x, arrondir=2, value=False):
     """
     Mettre en forme la p-value.
 
@@ -609,14 +611,23 @@ def significativite(x, arrondir=4):
 
     # Retourner la valeur avec le nombre d'étoiles associées
     if x < 0.001:
-        return str(x) + "***"
+        if value:
+            return "*** (p=" + str(x) + ")"
+        else:
+            return "*** (p < 0.001)"
     if x < 0.01:
-        return str(x) + "**"
+        if value:
+            return "** (p=" + str(x) + ")"
+        else:
+            return "** (p < 0.01)"
     if x < 0.05:
-        return str(x) + "*"
+        if value:
+            return "* (p=" + str(x) + ")"
+        else:
+            return "* (p < 0.05)"
 
     # Retourner la p-value mise en forme
-    return str(x)
+    return "(p=" + str(x) + ")"
 
 
 def tableau_reg_logistique(
@@ -673,15 +684,23 @@ def tableau_reg_logistique(
     table = np.exp(regression.conf_int())
     table["OR"] = round(np.exp(regression.params), arrondir)
     table["p"] = (
-        round(regression.pvalues, arrondir) if not notationscientifique else regression.pvalues
+        round(regression.pvalues, arrondir)
+        if not notationscientifique
+        else regression.pvalues.apply(lambda x: f"{x:.2e}")
     )
     table["IC 95%"] = table.apply(
-        lambda x: "%.2f [%.2f-%.2f]" % (x["OR"], x[0], x[1]), axis=1
+        lambda x: "%s [%s-%s]"
+        % (
+            str(round(x["OR"], arrondir)),
+            str(round(x[0], arrondir)),
+            str(round(x[1], arrondir)),
+        ),
+        axis=1,
     )
 
     # Ajout de la significativité
     if sig:
-        table["p"] = table["p"].apply(significativite)
+        table["p"] = table["p"].apply(lambda x: significativite(x, arrondir=arrondir))
     table = table.drop([0, 1], axis=1)
 
     # Transformation de l'index pour ajouter les références
@@ -758,7 +777,16 @@ def construction_formule(dep, indep):
     return dep + " ~ " + " + ".join(["Q('%s')" % i for i in indep])
 
 
-def regression_logistique(df, dep_var, var_indeps, poids=False, table_only=True, arrondir=2, notationscientifique=False):
+def regression_logistique(
+    df,
+    dep_var,
+    var_indeps,
+    poids=False,
+    table_only=True,
+    arrondir=2,
+    notationscientifique=False,
+    sig=True,
+):
     """
     Régression logistique binomiale pondérée.
 
@@ -805,7 +833,14 @@ def regression_logistique(df, dep_var, var_indeps, poids=False, table_only=True,
 
     # Retourner le tableau de présentation
     if table_only:
-        tableau = tableau_reg_logistique(regression, df, var_indeps, sig=True, arrondir=arrondir, notationscientifique=notationscientifique)
+        tableau = tableau_reg_logistique(
+            regression,
+            df,
+            var_indeps,
+            sig=sig,
+            arrondir=arrondir,
+            notationscientifique=notationscientifique,
+        )
         return tableau
     else:
         return regression
@@ -1038,7 +1073,9 @@ def catdes(
     # Pour chaque variable
     for v in cols_cat:
         # Calcul du tableau croisé
-        t, a, p, p_val = tableau_croise(df, vardep, v, poids=poids, verb=True, arrondir=arrondir)
+        t, a, p, p_val = tableau_croise(
+            df, vardep, v, poids=poids, verb=True, arrondir=arrondir
+        )
         a = a.drop(index="Total").drop(columns="Total")
 
         # Calcul du chi2
@@ -1240,20 +1277,30 @@ def catdes(
 # Classes et fonctions encore en développement
 
 
-def tableau_reg_logistique_distribution(df, dep_var, var_indeps, poids=False, arrondir=2, notationscientifique=False):
+def tableau_reg_logistique_distribution(
+    df, dep_var, var_indeps, poids=False, arrondir=2, notationscientifique=False
+):
     # Noms des variables
     if isinstance(var_indeps, list):
         var_indeps = {i: i for i in var_indeps}
 
     # régression logistique
-    reg = regression_logistique(df, dep_var, var_indeps, poids=poids, table_only=True, arrondir=arrondir, notationscientifique=notationscientifique)
+    reg = regression_logistique(
+        df,
+        dep_var,
+        var_indeps,
+        poids=poids,
+        table_only=True,
+        arrondir=arrondir,
+        notationscientifique=notationscientifique,
+    )
 
     # Distribution
     dis = {}
     for i in var_indeps:
-        dis[var_indeps[i]] = tri_a_plat(df, i, poids=poids, arrondir=arrondir)["Pourcentage (%)"].drop(
-            "Total"
-        )
+        dis[var_indeps[i]] = tri_a_plat(df, i, poids=poids, arrondir=arrondir)[
+            "Pourcentage (%)"
+        ].drop("Total")
     dis = pd.concat(dis, axis=0)
     dis.index.names = ["Variable", "Modalité"]
 
