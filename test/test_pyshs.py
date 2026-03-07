@@ -45,6 +45,14 @@ def test_tableau_croise_multiple(df_test):
 def test_regression_logistique(df_test):
     assert isinstance(pyshs.regression_logistique(df_test, "C5", ["C1"]), pd.DataFrame)
 
+def test_regression_logistique_multinomiale(df_test):
+    df = df_test.copy()
+    df["C6"] = ["A", "B", "C", "A"]
+    result = pyshs.regression_logistique_multinomiale(df, "C6", ["C1"])
+    assert isinstance(result, pd.DataFrame)
+    assert result.index.nlevels == 2
+    assert result.columns.nlevels == 2
+
 def test_moyenne_ponderee():
     assert pyshs.moyenne_ponderee([1, 2, 3], [1, 1, 2]) == 2.25
 

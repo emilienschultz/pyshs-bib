@@ -39,15 +39,17 @@ from ._core import (
     moyenne_ponderee,
     plot_acm,
     regression_logistique,
+    regression_logistique_multinomiale,
     significativite,
     tableau_croise,
     tableau_croise_controle,
     tableau_croise_multiple,
     tableau_reg_logistique,
+    tableau_reg_logistique_multinomiale,
     tri_a_plat,
     verification_recodage,
     vers_excel,
 )
 
-__version__ = "0.3.9"
+__version__ = "0.4.0"
 __author__ = "Émilien Schultz"

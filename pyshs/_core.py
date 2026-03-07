@@ -758,6 +758,268 @@ def tableau_reg_logistique(
     return table
 
 
+def tableau_reg_logistique_multinomiale(
+    regression,
+    data: DataFrame,
+    var_indeps: dict,
+    categories_map: dict,
+    sig: bool = True,
+    arrondir: int = 2,
+    notationscientifique: bool = False,
+) -> DataFrame:
+    """
+    Mise en forme des résultats de la régression logistique multinomiale.
+
+    Parameters
+    ----------
+    regression : statsmodels MNLogit result
+        modèle de régression multinomiale
+    data : DataFrame
+        tableau des données
+    var_indeps : dict
+        dictionnaire des variables indépendantes {nom_colonne: label}
+    categories_map : dict
+        correspondance {code_numérique: label_original} de la variable dépendante
+    sig : bool, optionnel
+        faire apparaître la significativité (défaut : True)
+    arrondir : int, optionnel
+        nombre de décimales (défaut : 2)
+    notationscientifique : bool, optionnel
+        notation scientifique pour les p-values (défaut : False)
+
+    Returns
+    -------
+    DataFrame
+        tableau des résultats avec MultiIndex à 3 niveaux.
+    """
+
+    # Séparation des variables et des effets d'interaction
+    var_indeps_unique = {}
+    for v in var_indeps:
+        if "*" in v:
+            for e in v.split("*"):
+                if not e.strip() in var_indeps_unique:
+                    var_indeps_unique[e.strip()] = e.strip()
+        else:
+            var_indeps_unique[v] = var_indeps[v]
+
+    # Variables numériques
+    var_num = data.select_dtypes(include=np.number).columns
+
+    # Identification des références (premier élément classé pour les catégorielles)
+    refs = []
+    for v in var_indeps_unique:
+        if v not in var_num:
+            r = sorted(data[v].dropna().unique())[0]
+            refs.append(str(v) + "[T." + str(r) + "]")
+
+    # Récupérer les catégories non-référence du modèle
+    # Les params du MNLogit ont shape (n_params, n_categories-1)
+    params = regression.params
+    pvalues = regression.pvalues
+    conf_int = regression.conf_int()
+
+    # Les colonnes de params (int 0,1,...) correspondent aux catégories
+    # non-référence (codes 1,2,...). conf_int a un MultiIndex (str(code), var).
+    all_tables = []
+
+    for col_idx in params.columns:
+        # col_idx is 0-based column index; corresponds to category code col_idx+1
+        cat_code = col_idx + 1
+        cat_label = categories_map.get(cat_code, str(cat_code))
+
+        # Extraire params et pvalues pour cette catégorie
+        cat_params = params[col_idx]
+        cat_pvalues = pvalues[col_idx]
+
+        # conf_int est indexé par (str(cat_code), variable_name)
+        ci_cat = conf_int.loc[str(cat_code)]
+        cat_ci_lower = ci_cat["lower"]
+        cat_ci_upper = ci_cat["upper"]
+
+        table = pd.DataFrame(index=cat_params.index)
+        table["OR"] = round(np.exp(cat_params), arrondir)
+        table["p"] = (
+            round(cat_pvalues, arrondir)
+            if not notationscientifique
+            else cat_pvalues.apply(lambda x: f"{x:.2e}")
+        )
+
+        ci_lower_exp = np.exp(cat_ci_lower)
+        ci_upper_exp = np.exp(cat_ci_upper)
+        table["IC 95%"] = [
+            "%s [%s-%s]"
+            % (
+                str(round(table.loc[idx, "OR"], arrondir)),
+                str(round(ci_lower_exp.loc[idx], arrondir)),
+                str(round(ci_upper_exp.loc[idx], arrondir)),
+            )
+            for idx in table.index
+        ]
+
+        # Ajout de la significativité
+        if sig:
+            table["p"] = table["p"].apply(
+                lambda x: significativite(x, arrondir=arrondir)
+            )
+
+        # Gestion de l'intercept
+        temp_intercept = list(table.loc["Intercept"])
+        table = table.drop("Intercept")
+
+        # Ajout des références
+        for i in refs:
+            table.loc[i] = ["ref", " ", " "]
+
+        # Création du row index (Variable, Modalité)
+        new_index = []
+        for i in table.index:
+            if ":" in i:
+                new_index.append(("var. interaction", i.replace("T.", "")))
+            else:
+                if "[T." in i:
+                    tmp = i.split("[T.")
+                    var = tmp[0].replace("Q('", "").replace("')", "")
+                    new_index.append((var_indeps_unique[var], tmp[1][0:-1]))
+                else:
+                    i_clean = i.replace("Q('", "").replace("')", "")
+                    new_index.append((var_indeps_unique[i_clean], "numérique"))
+
+        # Réintégration de l'Intercept
+        new_index.append((".Intercept", ""))
+        table.loc[".Intercept"] = temp_intercept
+
+        # Appliquer le row index
+        if langue == "fr":
+            row_names = ["Variable", "Modalité"]
+        elif langue == "en":
+            row_names = ["Variable", "Modality"]
+        else:
+            row_names = ["Variable", "Modalité"]
+        table.index = pd.MultiIndex.from_tuples(new_index, names=row_names)
+        table = table.sort_index()
+
+        # Ajouter le label de catégorie comme niveau supérieur dans les colonnes
+        table.columns = pd.MultiIndex.from_tuples(
+            [(cat_label, c) for c in table.columns],
+            names=[
+                "Catégorie" if langue != "en" else "Category",
+                "",
+            ],
+        )
+
+        all_tables.append(table)
+
+    # Concaténer par colonnes (chaque catégorie = un bloc de colonnes)
+    result = pd.concat(all_tables, axis=1)
+
+    return result
+
+
+def regression_logistique_multinomiale(
+    df: DataFrame,
+    dep_var: str,
+    var_indeps: dict | list,
+    ref_categorie: str | None = None,
+    table_only: bool = True,
+    arrondir: int = 2,
+    notationscientifique: bool = False,
+    sig: bool = True,
+) -> DataFrame:
+    """
+    Régression logistique multinomiale.
+
+    Parameters
+    ----------
+    df : DataFrame
+        tableau des données
+    dep_var : str
+        variable dépendante (catégorielle avec >2 modalités)
+    var_indeps : dict or list
+        variables indépendantes (dict {nom: label} ou liste)
+    ref_categorie : str, optionnel
+        catégorie de référence (défaut : première valeur alphabétique)
+    table_only : bool, optionnel
+        retourner seulement le tableau (défaut : True)
+    arrondir : int, optionnel
+        nombre de décimales (défaut : 2)
+    notationscientifique : bool, optionnel
+        notation scientifique pour les p-values (défaut : False)
+    sig : bool, optionnel
+        faire apparaître la significativité (défaut : True)
+
+    Returns
+    -------
+    DataFrame
+        tableau des résultats avec OR, p-values et IC 95%.
+    """
+
+    df = df.copy()
+
+    # Validation : la variable dépendante doit avoir plus de 2 modalités
+    n_categories = df[dep_var].nunique()
+    if n_categories <= 1:
+        raise Exception(f"La variable '{dep_var}' doit avoir au moins 2 modalités.")
+    if n_categories == 2:
+        warnings.warn(
+            f"La variable '{dep_var}' n'a que 2 modalités. "
+            "Utilisez regression_logistique() pour une régression binomiale."
+        )
+
+    # Mettre les variables indépendantes en dictionnaire si nécessaire
+    if isinstance(var_indeps, list):
+        var_indeps = {i: i for i in var_indeps}
+
+    # Encodage de la variable dépendante en numérique
+    categories = sorted(df[dep_var].dropna().unique())
+    if ref_categorie is None:
+        ref_categorie = categories[0]
+    elif ref_categorie not in categories:
+        raise Exception(
+            f"La catégorie de référence '{ref_categorie}' "
+            f"n'est pas dans les valeurs de '{dep_var}'."
+        )
+
+    # Créer le mapping : référence = 0, puis les autres dans l'ordre
+    other_categories = [c for c in categories if c != ref_categorie]
+    categories_ordered = [ref_categorie] + other_categories
+    cat_to_code = {cat: i for i, cat in enumerate(categories_ordered)}
+    code_to_cat = {i: cat for cat, i in cat_to_code.items()}
+
+    # Variable dépendante encodée
+    dep_var_encoded = dep_var + "_encoded"
+    df[dep_var_encoded] = df[dep_var].map(cat_to_code)
+
+    # Supprimer les lignes avec des NA sur les variables utilisées
+    cols_used = list(var_indeps.keys()) + [dep_var_encoded]
+    df = df.dropna(subset=cols_used)
+
+    # Construction de la formule
+    f = construction_formule(dep_var_encoded, var_indeps)
+
+    # Création du modèle multinomial
+    modele = smf.mnlogit(formula=f, data=df)
+    regression = modele.fit(disp=False)
+
+    # Afficher le pseudo R²
+    print(f"Pseudo R² (McFadden) : {round(regression.prsquared, arrondir)}")
+
+    # Retourner le tableau de présentation
+    if table_only:
+        tableau = tableau_reg_logistique_multinomiale(
+            regression,
+            df,
+            var_indeps,
+            categories_map=code_to_cat,
+            sig=sig,
+            arrondir=arrondir,
+            notationscientifique=notationscientifique,
+        )
+        return tableau
+    else:
+        return regression
+
+
 def construction_formule(dep, indep):
     """
     Construit une formule de modèle linéaire.
@@ -830,6 +1092,9 @@ def regression_logistique(
     )
 
     regression = modele.fit()
+
+    # Afficher le pseudo R²
+    print(f"Pseudo R² (McFadden) : {round(regression.pseudo_rsquared(), arrondir)}")
 
     # Retourner le tableau de présentation
     if table_only:
