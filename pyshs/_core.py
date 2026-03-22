@@ -320,6 +320,7 @@ def tableau_croise(
         pd.crosstab(df[c1], df[c2], values=df[poids], aggfunc="sum", margins=True),
         arrondir,
     ).fillna(0)
+
     # Tableau pourcentages par ligne (enlever la colonne totale)
     t_pourcentage = t_absolu.drop("All", axis=1).apply(
         lambda x: round(100 * x / sum(x), arrondir), axis=1
@@ -423,6 +424,9 @@ def tableau_croise_controle(
     mod = df[cont].unique()  # modalités de contrôle
     for i in mod:
         d = df[df[cont] == i]  # sous-ensemble
+        if len(d) == 0:
+            print("Attention, aucune observation pour la modalité", i)
+            continue
         t, p = tableau_croise(d, c, r, poids, p=True, arrondir=arrondir)
 
         # Construire le tableau avec ou sans le chi2
