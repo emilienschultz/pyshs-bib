@@ -598,7 +598,7 @@ def significativite(x, arrondir=2, value=False):
     x : float
         p-value
     arrondir : int, optionnel
-        nombre de décimales (défaut : 4)
+        nombre de décimales pour l'affichage (défaut : 2)
 
     Returns
     -------
@@ -610,28 +610,38 @@ def significativite(x, arrondir=2, value=False):
     if pd.isnull(x):
         return None
 
-    # Arrondir
-    x = round(x, arrondir)
+    # Arrondir uniquement pour l'affichage : les seuils portent sur la valeur brute
+    affiche = round(x, arrondir)
 
     # Retourner la valeur avec le nombre d'étoiles associées
     if x < 0.001:
         if value:
-            return "*** (p=" + str(x) + ")"
+            return "*** (p=" + str(affiche) + ")"
         else:
             return "*** (p < 0.001)"
     if x < 0.01:
         if value:
-            return "** (p=" + str(x) + ")"
+            return "** (p=" + str(affiche) + ")"
         else:
             return "** (p < 0.01)"
     if x < 0.05:
         if value:
-            return "* (p=" + str(x) + ")"
+            return "* (p=" + str(affiche) + ")"
         else:
             return "* (p < 0.05)"
 
     # Retourner la p-value mise en forme
-    return "(p=" + str(x) + ")"
+    return "(p=" + str(affiche) + ")"
+
+
+def _modalite_reference(serie):
+    """
+    Modalité de référence utilisée par patsy pour une variable catégorielle :
+    première catégorie déclarée pour un Categorical, sinon première valeur triée.
+    """
+    if isinstance(serie.dtype, pd.CategoricalDtype):
+        return serie.cat.categories[0]
+    return sorted(serie.dropna().unique())[0]
 
 
 def tableau_reg_logistique(
@@ -717,11 +727,11 @@ def tableau_reg_logistique(
     var_num = data.select_dtypes(include=np.number).columns
 
     # Identification des références utilisées par la régression
-    # Premier élément des modalités classées pour les variables non numériques
+    # (première catégorie déclarée pour un Categorical, sinon premier élément trié)
     refs = []
     for v in var_indeps_unique:
         if not v in var_num:
-            r = sorted(data[v].dropna().unique())[0]  # premier élément
+            r = _modalite_reference(data[v])
             refs.append(str(v) + "[T." + str(r) + "]")  # ajout de la référence
 
     # Ajout des références dans le tableau
@@ -810,11 +820,11 @@ def tableau_reg_logistique_multinomiale(
     # Variables numériques
     var_num = data.select_dtypes(include=np.number).columns
 
-    # Identification des références (premier élément classé pour les catégorielles)
+    # Identification des références (première catégorie déclarée, sinon premier élément trié)
     refs = []
     for v in var_indeps_unique:
         if v not in var_num:
-            r = sorted(data[v].dropna().unique())[0]
+            r = _modalite_reference(data[v])
             refs.append(str(v) + "[T." + str(r) + "]")
 
     # Récupérer les catégories non-référence du modèle
@@ -1098,7 +1108,7 @@ def regression_logistique(
     regression = modele.fit()
 
     # Afficher le pseudo R²
-    print(f"Pseudo R² (McFadden) : {round(regression.pseudo_rsquared(), arrondir)}")
+    print(f"Pseudo R² (McFadden) : {round(regression.pseudo_rsquared(kind='mcf'), arrondir)}")
 
     # Retourner le tableau de présentation
     if table_only:

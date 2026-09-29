@@ -45,6 +45,12 @@ def test_tableau_croise_multiple(df_test):
 def test_regression_logistique(df_test):
     assert isinstance(pyshs.regression_logistique(df_test, "C5", ["C1"]), pd.DataFrame)
 
+def test_regression_logistique_pseudo_r2_mcfadden(df_test, capsys):
+    import statsmodels.formula.api as smf
+    pyshs.regression_logistique(df_test, "C5", ["C1"], arrondir=4)
+    attendu = round(smf.logit("C5 ~ C1", data=df_test).fit(disp=0).prsquared, 4)
+    assert f"Pseudo R² (McFadden) : {attendu}" in capsys.readouterr().out
+
 def test_regression_logistique_multinomiale(df_test):
     df = df_test.copy()
     df["C6"] = ["A", "B", "C", "A"]
@@ -58,6 +64,33 @@ def test_moyenne_ponderee():
 
 def test_ecart_type_pondere():
     assert pyshs.ecart_type_pondere([1, 1, 1], [10, 1, 2]) == 0
+
+def test_significativite_seuils_sur_valeur_brute():
+    assert pyshs.significativite(0.004, arrondir=2) == "** (p < 0.01)"
+    assert pyshs.significativite(0.0096, arrondir=2) == "** (p < 0.01)"
+    assert pyshs.significativite(0.0004, arrondir=2) == "*** (p < 0.001)"
+    assert pyshs.significativite(0.049, arrondir=2) == "* (p < 0.05)"
+    assert pyshs.significativite(0.004, arrondir=2, value=True) == "** (p=0.0)"
+    assert pyshs.significativite(0.2, arrondir=2) == "(p=0.2)"
+
+def test_tableau_reg_logistique_reference_categorical():
+    import numpy as np
+    rng = np.random.default_rng(0)
+    d = pd.DataFrame({"x": rng.choice(["a", "b", "c"], 300), "y": rng.integers(0, 2, 300)})
+    d["x"] = pd.Categorical(d["x"], categories=["c", "a", "b"])
+    tab = pyshs.regression_logistique(d, "y", ["x"])
+    modalites = list(tab.loc["x"].index)
+    assert sorted(modalites) == ["a", "b", "c"]
+    assert tab.loc[("x", "c"), "OR"] == "ref"
+    assert tab.loc[("x", "a"), "OR"] != "ref"
+
+def test_tableau_reg_logistique_multinomiale_reference_categorical():
+    import numpy as np
+    rng = np.random.default_rng(0)
+    d = pd.DataFrame({"x": rng.choice(["a", "b", "c"], 300), "y": rng.choice(["u", "v", "w"], 300)})
+    d["x"] = pd.Categorical(d["x"], categories=["c", "a", "b"])
+    tab = pyshs.regression_logistique_multinomiale(d, "y", ["x"])
+    assert sorted(tab.loc["x"].index) == ["a", "b", "c"]
 
 if __name__ == "__main__":
 
