@@ -1,6 +1,7 @@
 # modification du 02/03/2025
 
 import math
+import re
 import warnings
 from typing import List
 
@@ -687,10 +688,10 @@ def tableau_reg_logistique(
     # Séparation des variables et des effets d'interaction
     var_indeps_unique = {}
     for v in var_indeps:
-        if "*" in v:  # cas d'une interaction
-            for e in v.split("*"):
-                if not e.strip() in var_indeps_unique:
-                    var_indeps_unique[e.strip()] = e.strip()
+        if _est_interaction(v):
+            for e in _elements_interaction(v):
+                if not e in var_indeps_unique:
+                    var_indeps_unique[e] = e
         else:
             var_indeps_unique[v] = var_indeps[v]
 
@@ -703,11 +704,13 @@ def tableau_reg_logistique(
         else regression.pvalues.apply(lambda x: f"{x:.2e}")
     )
     table["IC 95%"] = table.apply(
-        lambda x: "%s [%s-%s]"
-        % (
-            str(round(x["OR"], arrondir)),
-            str(round(x[0], arrondir)),
-            str(round(x[1], arrondir)),
+        lambda x: (
+            "%s [%s-%s]"
+            % (
+                str(round(x["OR"], arrondir)),
+                str(round(x[0], arrondir)),
+                str(round(x[1], arrondir)),
+            )
         ),
         axis=1,
     )
@@ -742,7 +745,12 @@ def tableau_reg_logistique(
     new_index = []
     for i in table.index:
         if ":" in i:  # cas où c'est une ligne d'interaction
-            new_index.append(("var. interaction", i.replace("T.", "")))
+            new_index.append(
+                (
+                    "var. interaction",
+                    i.replace("T.", "").replace("Q('", "").replace("')", ""),
+                )
+            )
         else:
             if "[T." in i:  # Si c'est une variable catégorielle
                 tmp = i.split("[T.")
@@ -810,10 +818,10 @@ def tableau_reg_logistique_multinomiale(
     # Séparation des variables et des effets d'interaction
     var_indeps_unique = {}
     for v in var_indeps:
-        if "*" in v:
-            for e in v.split("*"):
-                if not e.strip() in var_indeps_unique:
-                    var_indeps_unique[e.strip()] = e.strip()
+        if _est_interaction(v):
+            for e in _elements_interaction(v):
+                if not e in var_indeps_unique:
+                    var_indeps_unique[e] = e
         else:
             var_indeps_unique[v] = var_indeps[v]
 
@@ -889,7 +897,12 @@ def tableau_reg_logistique_multinomiale(
         new_index = []
         for i in table.index:
             if ":" in i:
-                new_index.append(("var. interaction", i.replace("T.", "")))
+                new_index.append(
+                    (
+                        "var. interaction",
+                        i.replace("T.", "").replace("Q('", "").replace("')", ""),
+                    )
+                )
             else:
                 if "[T." in i:
                     tmp = i.split("[T.")
@@ -1005,7 +1018,9 @@ def regression_logistique_multinomiale(
     df[dep_var_encoded] = df[dep_var].map(cat_to_code)
 
     # Supprimer les lignes avec des NA sur les variables utilisées
-    cols_used = list(var_indeps.keys()) + [dep_var_encoded]
+    cols_used = list({e for v in var_indeps for e in _elements_interaction(v)}) + [
+        dep_var_encoded
+    ]
     df = df.dropna(subset=cols_used)
 
     # Construction de la formule
@@ -1050,7 +1065,24 @@ def construction_formule(dep, indep):
     str : formule de régression
 
     """
-    return dep + " ~ " + " + ".join(["Q('%s')" % i for i in indep])
+    termes = []
+    for i in indep:
+        # Les interactions (x*z ou x:z) sont décomposées : Q('x')*Q('z')
+        elements = re.split(r"\s*([*:])\s*", i.strip())
+        termes.append(
+            "".join(e if e in ("*", ":") else "Q('%s')" % e for e in elements)
+        )
+    return dep + " ~ " + " + ".join(termes)
+
+
+def _est_interaction(v):
+    """Indique si une clé de var_indeps décrit une interaction (x*z ou x:z)."""
+    return "*" in v or ":" in v
+
+
+def _elements_interaction(v):
+    """Liste des variables qui composent une interaction."""
+    return [e.strip() for e in re.split(r"[*:]", v)]
 
 
 def regression_logistique(
@@ -1108,7 +1140,9 @@ def regression_logistique(
     regression = modele.fit()
 
     # Afficher le pseudo R²
-    print(f"Pseudo R² (McFadden) : {round(regression.pseudo_rsquared(kind='mcf'), arrondir)}")
+    print(
+        f"Pseudo R² (McFadden) : {round(regression.pseudo_rsquared(kind='mcf'), arrondir)}"
+    )
 
     # Retourner le tableau de présentation
     if table_only:
@@ -1142,9 +1176,21 @@ def likelihood_ratio(mod, mod_r):
 
     Notes
     -----
+    Les deux modèles doivent être emboîtés et estimés sur les mêmes individus.
+    Un avertissement est émis si leurs nombres d'observations diffèrent
+    (par exemple à cause des lignes incomplètes retirées par patsy).
+
     Source : http://rnowling.github.io/machine/learning/2017/10/07/likelihood-ratio-test.html
     Testé en Rstats avec lmtest
     """
+    # Vérifier que les deux modèles portent sur le même échantillon
+    if mod.nobs != mod_r.nobs:
+        warnings.warn(
+            f"Les deux modèles n'ont pas le même nombre d'observations "
+            f"({mod.nobs:g} et {mod_r.nobs:g}) : "
+            "le test du rapport de vraisemblance n'est pas valide."
+        )
+
     val = [mod.llf, mod_r.llf]
     LR = 2 * (max(val) - min(val))  # rapport de déviance
 
@@ -1338,6 +1384,8 @@ def catdes(
                 cols_cat.append(i)
 
     # Pondération à 1 si pas de pondération
+    # (poids_tableau reste None pour que tableau_croise n'effectue pas de test pondéré)
+    poids_tableau = poids if poids else None
     if not poids:
         df["poids"] = [1] * len(df)
         poids = "poids"
@@ -1353,7 +1401,7 @@ def catdes(
     for v in cols_cat:
         # Calcul du tableau croisé
         t, a, p, p_val = tableau_croise(
-            df, vardep, v, poids=poids, verb=True, arrondir=arrondir
+            df, vardep, v, poids=poids_tableau, verb=True, arrondir=arrondir
         )
         a = a.drop(index="Total").drop(columns="Total")
 
@@ -1447,7 +1495,12 @@ def catdes(
             V = (1 - 2 * int(n_kj / n_j > n_k / n)) * norm.ppf(p_min2 / 2)
             # Calcul du chi2 sur le tableau croisé 2x2
             t, a, p, p_val = tableau_croise(
-                tab_all, categorie, modalite, poids, verb=True, arrondir=arrondir
+                tab_all,
+                categorie,
+                modalite,
+                poids_tableau,
+                verb=True,
+                arrondir=arrondir,
             )
             a = a.drop(index="Total").drop(columns="Total")
             k, p_chi2, f, t = chi2_contingency(a, correction=False)

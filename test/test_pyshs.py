@@ -1,6 +1,7 @@
 import pyshs
 import pandas as pd
 import pytest
+import warnings
 
 
 # A fixture is a magical function that will called for each test with a
@@ -91,6 +92,52 @@ def test_tableau_reg_logistique_multinomiale_reference_categorical():
     d["x"] = pd.Categorical(d["x"], categories=["c", "a", "b"])
     tab = pyshs.regression_logistique_multinomiale(d, "y", ["x"])
     assert sorted(tab.loc["x"].index) == ["a", "b", "c"]
+
+def test_construction_formule_interactions():
+    f = pyshs.construction_formule("y", ["x", "x*z", "x : age"])
+    assert f == "y ~ Q('x') + Q('x')*Q('z') + Q('x'):Q('age')"
+
+@pytest.mark.parametrize("interaction", ["x*z", "x:z"])
+def test_regression_logistique_interaction(interaction):
+    import numpy as np
+    rng = np.random.default_rng(0)
+    d = pd.DataFrame({"x": rng.choice(["a", "b"], 300), "z": rng.choice(["c", "d"], 300),
+                      "y": rng.integers(0, 2, 300), "m": rng.choice(["u", "v", "w"], 300)})
+    var_indeps = {"x": "X", "z": "Z", interaction: "XZ"}
+    tab = pyshs.regression_logistique(d, "y", var_indeps)
+    assert list(tab.loc["var. interaction"].index) == ["x[b]:z[d]"]
+    tab_multi = pyshs.regression_logistique_multinomiale(d, "m", var_indeps)
+    assert "var. interaction" in tab_multi.index.get_level_values(0)
+
+def test_likelihood_ratio_nobs_differents():
+    import numpy as np
+    rng = np.random.default_rng(0)
+    d = pd.DataFrame({"x": rng.normal(size=200), "z": rng.normal(size=200), "y": rng.integers(0, 2, 200)})
+    m1 = pyshs.regression_logistique(d, "y", ["x", "z"], table_only=False)
+    m0 = pyshs.regression_logistique(d, "y", ["x"], table_only=False)
+    m0_partiel = pyshs.regression_logistique(d.iloc[:100], "y", ["x"], table_only=False)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert 0 <= pyshs.likelihood_ratio(m1, m0) <= 1
+    with pytest.warns(UserWarning, match="nombre d'observations"):
+        pyshs.likelihood_ratio(m1, m0_partiel)
+
+def test_catdes_sans_poids_pas_de_test_pondere(monkeypatch):
+    import numpy as np
+    import pyshs._core as core
+    appels = []
+
+    class Espion(core.CrossTabulation):
+        def tabulate(self, *a, **k):
+            appels.append(1)
+            return super().tabulate(*a, **k)
+
+    monkeypatch.setattr(core, "CrossTabulation", Espion)
+    rng = np.random.default_rng(0)
+    d = pd.DataFrame({"x": rng.choice(["a", "b", "c"], 300), "y": rng.choice(["non", "oui"], 300)})
+    pyshs.catdes(d, "y", varindep=["x"], proba=1)
+    pyshs.catdes(d, "y", varindep=["x"], proba=1, mod=True)
+    assert len(appels) == 0
 
 if __name__ == "__main__":
 
